@@ -1,4 +1,4 @@
-import { AnimeResponse, Anime, Episode, Schedule, Genre } from '../types/anime';
+import { AnimeResponse, Anime, Episode, Schedule, Genre, Batch } from '../types/anime';
 const API_BASE_URL = import.meta.env.VITE_ANIME_API_BASE_URL || 'http://localhost:8000';
 
 export class AnimeApi {
@@ -65,6 +65,11 @@ export class AnimeApi {
 
   static async getDetail(slug: string) {
     return this.fetch<AnimeResponse<Anime>>(`/anime/${slug}`);
+  }
+
+  static async getBatch(slug: string) {
+     
+    return this.fetch<AnimeResponse<Batch>>(`/batch/${slug}`);
   }
 
   static async getEpisode(slug: string) {

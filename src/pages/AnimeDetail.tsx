@@ -1,9 +1,47 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
+import { ResolutionDownloadDropdown } from '../components/anime/ResolutionDownloadDropdown';
 import { AnimeApi } from '../lib/api';
 import { Play, Calendar, Star, Info, Hash, Clock, MonitorPlay, Download, Tv } from 'lucide-react';
 import { ImageWithFallback } from '../components/ImageWithFallback';
+import { Batch, DownloadLink } from "../types/anime";
+
+
+
+function BatchItem({ batch }: { batch: Batch }) {
+  const { data: batchDetail, isLoading } = useQuery({
+    queryKey: ['batch', batch.endpoint],
+    queryFn: () => AnimeApi.getBatch(batch.endpoint)
+  });
+
+  return (
+    <div className="bg-zinc-900/50 p-4 rounded-xl border border-white/5 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+      <span className="font-medium text-gray-300 sm:w-1/3 pt-1">{batch.title}</span>
+      <div className="w-full sm:w-2/3 mt-3 sm:mt-0">
+        {isLoading ? (
+          <div className="flex items-center gap-2 text-gray-500 text-sm">
+            <div className="w-4 h-4 rounded-full border-2 border-green-500 border-t-transparent animate-spin" />
+            Loading links...
+          </div>
+        ) : batchDetail?.data?.download_links && Object.keys(batchDetail.data.download_links).length > 0 ? (
+          <ResolutionDownloadDropdown
+            downloads={Object.fromEntries(
+              
+              Object.entries(batchDetail.data.download_links).map(([res, links]) => [
+                res,
+                
+                links.map((link: DownloadLink) => ({ provider: link.title || 'Unknown', format: res, url: link.url })),
+              ])
+            )}
+          />
+        ) : (
+          <div className="text-sm text-gray-500">No download links available for this batch.</div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function AnimeDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -167,7 +205,7 @@ export function AnimeDetail() {
                         <span className="md:hidden text-[10px] font-normal text-gray-500 mr-1">Ep</span>
                         {epNumber}
                       </div>
-                      <div className="mt-1 md:mt-2 text-[8px] md:text-[10px] text-gray-400 truncate w-full">{ep.date}</div>
+                      <div className="mt-1 md:mt-2 text-[8px] md:text-[10px] text-gray-400 truncate w-full">{ep.date?.split(' ')[0]}</div>
                     </Link>
                   );
                 })}
@@ -181,11 +219,8 @@ export function AnimeDetail() {
                   Batch Downloads
                 </h3>
                 <div className="grid gap-3">
-                  {data.batches.map((batch) => (
-                    <div key={batch.id} className="bg-zinc-900/50 p-4 rounded-xl border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <span className="font-medium text-gray-300">{batch.title}</span>
-                      <div className="text-sm text-gray-500">Batch download functionality pending</div>
-                    </div>
+                  {data.batches.map(( batch: Batch) => (
+                    <BatchItem key={batch.endpoint || batch.id} batch={batch} />
                   ))}
                 </div>
               </div>

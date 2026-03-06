@@ -15,6 +15,8 @@ export interface Anime {  id: number;
   synopsis?: string | null;
   created_at?: string;
   updated_at?: string;
+  last_episode_number?: number | null;
+  last_episode_date?: string | null;
   genres?: Genre[];
   episodes?: Episode[];
   batches?: Batch[];

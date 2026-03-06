@@ -7,7 +7,7 @@ interface SchedulePageProps {
 }
 
 export function AnimeSchedule({ schedule }: SchedulePageProps) {
-  const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+  const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu', 'Random'];
 
   const today = new Date().getDay();
   const initialDayIndex = today === 0 ? 6 : today - 1;

@@ -14,6 +14,7 @@ export function AnimePlayer({ streams, title }: AnimePlayerProps) {
   useEffect(() => {
     if (streams && streams.length > 0) {
       const defaultStream = streams.find((s) => s.is_default === 1) || streams[0];
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCurrentStream(defaultStream);
     }
   }, [streams]);

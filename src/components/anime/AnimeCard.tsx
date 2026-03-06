@@ -2,6 +2,18 @@ import { Link } from 'react-router-dom';import { Anime } from '../../types/anime
 import { PlayCircle } from 'lucide-react';
 import { ImageWithFallback } from '../ImageWithFallback';
 
+const getDayName = (dateString?: string | null) => {
+  if (!dateString) return '';
+  try {
+    const safeDateStr = dateString.split(' ')[0];
+    const date = new Date(safeDateStr);
+    if (isNaN(date.getTime())) return safeDateStr; // Kembalikan string asli jika format salah
+    return new Intl.DateTimeFormat('id-ID', { weekday: 'long' }).format(date);
+  } catch {
+    return dateString;
+  }
+};
+
 interface AnimeCardProps {
   anime: Anime;
   showReleaseDayBadge?: boolean;
@@ -29,14 +41,14 @@ export function AnimeCard({ anime, showReleaseDayBadge = false }: AnimeCardProps
         {anime.score && <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded-md bg-yellow-500/90 text-black text-[10px] font-bold">★ {anime.score}</div>}
 
         {/* Episode Badge */}
-        {anime.latest_episode && (
-          <div className="absolute bottom-2 right-2 px-2 py-1 rounded-md bg-red-600/90 text-white text-[10px] font-bold shadow-sm">Ep {anime.latest_episode.episode_number}</div>
+        {(anime.last_episode_number || anime.latest_episode) && (
+          <div className="absolute bottom-2 right-2 px-2 py-1 rounded-md bg-red-600/90 text-white text-[10px] font-bold shadow-sm">Ep {anime.last_episode_number || anime.latest_episode?.episode_number}</div>
         )}
 
-        {/* Release Date Badge */}
-        {anime.latest_episode?.date && (
-          <div className="absolute bottom-2 left-2 px-2 py-1 rounded-md bg-black/60 backdrop-blur-md text-white text-[10px] font-medium border border-white/10 shadow-sm">
-            {anime.latest_episode.date}
+        {/* Release Date Badge (Converted to Day) */}
+        {(anime.last_episode_date || anime.latest_episode?.date) && (
+          <div className="absolute bottom-2 left-2 px-2 py-1 rounded-md bg-black/60 backdrop-blur-md text-white text-[10px] font-medium border border-white/10 shadow-sm capitalize">
+            {getDayName(anime.last_episode_date || anime.latest_episode?.date)}
           </div>
         )}
 
@@ -57,8 +69,12 @@ export function AnimeCard({ anime, showReleaseDayBadge = false }: AnimeCardProps
         <h3 className="text-xs md:text-sm font-semibold text-white line-clamp-2 leading-tight group-hover:text-red-500 transition-colors">{anime.title}</h3>
         <div className="mt-1 md:mt-2 flex items-center gap-2 text-[10px] md:text-xs text-gray-400 line-clamp-1">
           {anime.type && <span>{anime.type}</span>}
-          {anime.type && (anime.total_episodes || anime.latest_episode?.date) && <span>•</span>}
-          {anime.latest_episode?.date ? <span className="text-red-400 font-medium">{anime.latest_episode.date}</span> : anime.total_episodes ? <span>{anime.total_episodes} Eps</span> : null}
+          {anime.type && (anime.total_episodes || anime.last_episode_date || anime.latest_episode?.date) && <span>•</span>}
+          {(anime.last_episode_date || anime.latest_episode?.date) ? (
+             <span className="text-red-400 font-medium">
+               {anime.last_episode_date ? anime.last_episode_date.split(' ')[0] : anime.latest_episode?.date}
+             </span>
+          ) : anime.total_episodes ? <span>{anime.total_episodes} Eps</span> : null}
         </div>
       </div>
     </Link>

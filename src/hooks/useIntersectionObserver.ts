@@ -23,6 +23,7 @@ export function useIntersectionObserver({ threshold = 0, root = null, rootMargin
     observer.observe(node);
 
     return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [node, JSON.stringify(threshold), root, rootMargin, frozen]);
 
   return { ref: setNode, entry, inView: !!entry?.isIntersecting };
