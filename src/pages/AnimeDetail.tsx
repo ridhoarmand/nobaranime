@@ -83,6 +83,24 @@ export function AnimeDetail() {
               </div>
             </div>
 
+            <div className="bg-zinc-900/30 rounded-2xl p-4 md:p-5 border border-white/5 text-gray-300 leading-relaxed whitespace-pre-line text-sm md:text-base text-left">
+              <h3 className="text-base md:text-lg font-bold mb-3 flex items-center gap-2 text-white justify-start">
+                <Info className="w-4 h-4 md:w-5 md:h-5 text-red-500" />
+                Synopsis
+              </h3>
+              <div className={`relative transition-all duration-300 overflow-hidden ${!isSynopsisExpanded ? 'line-clamp-2 md:line-clamp-3' : ''}`}>
+                {data.synopsis || 'Tidak ada sinopsis untuk anime ini.'}
+              </div>
+              {data.synopsis && data.synopsis.length > 250 && (
+                <button
+                  onClick={() => setIsSynopsisExpanded(!isSynopsisExpanded)}
+                  className="mt-2 text-red-500 hover:text-red-400 text-xs md:text-sm font-bold transition-colors w-full md:w-auto text-center md:text-left"
+                >
+                  {isSynopsisExpanded ? 'Sembunyikan' : 'Baca Selengkapnya...'}
+                </button>
+              )}
+            </div>
+
             <div className="grid grid-cols-3 md:grid-cols-5 gap-2 md:gap-3 text-left">
               <div className="bg-zinc-900/50 p-2 md:p-3 rounded-lg border border-white/5 hover:border-red-500/30 transition-colors">
                 <div className="flex items-center gap-1.5 text-gray-400 mb-1">
@@ -119,24 +137,6 @@ export function AnimeDetail() {
                 </div>
                 <p className="text-xs md:text-sm font-semibold truncate">{data.broadcast_day || 'Unknown'}</p>
               </div>
-            </div>
-
-            <div className="bg-zinc-900/30 rounded-2xl p-4 md:p-5 border border-white/5 text-gray-300 leading-relaxed whitespace-pre-line text-sm md:text-base text-left">
-              <h3 className="text-base md:text-lg font-bold mb-3 flex items-center gap-2 text-white justify-start">
-                <Info className="w-4 h-4 md:w-5 md:h-5 text-red-500" />
-                Synopsis
-              </h3>
-              <div className={`relative transition-all duration-300 overflow-hidden ${!isSynopsisExpanded ? 'line-clamp-2 md:line-clamp-3' : ''}`}>
-                {data.synopsis || 'Tidak ada sinopsis untuk anime ini.'}
-              </div>
-              {data.synopsis && data.synopsis.length > 250 && (
-                <button
-                  onClick={() => setIsSynopsisExpanded(!isSynopsisExpanded)}
-                  className="mt-2 text-red-500 hover:text-red-400 text-xs md:text-sm font-bold transition-colors w-full md:w-auto text-center md:text-left"
-                >
-                  {isSynopsisExpanded ? 'Sembunyikan' : 'Baca Selengkapnya...'}
-                </button>
-              )}
             </div>
 
             <div className="space-y-4">
