@@ -11,6 +11,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'icon-192.png', 'icon-512.png'],
+      manifestFilename: 'manifest.json',
       manifest: {
         name: 'NobarAnime',
         short_name: 'NobarAnime',
@@ -19,6 +20,9 @@ export default defineConfig({
         background_color: '#000000',
         display: 'standalone',
         orientation: 'portrait',
+        start_url: '/',
+        scope: '/',
+        lang: 'en',
         icons: [
           {
             src: '/icon-192.png',
@@ -74,6 +78,9 @@ export default defineConfig({
             },
           },
         ],
+      },
+      devOptions: {
+        enabled: false,
       },
     }),
   ],

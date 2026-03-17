@@ -1,0 +1,8 @@
+# GitHub Pages headers configuration
+# This file configures custom headers for GitHub Pages
+
+# Note: GitHub Pages doesn't support custom .htaccess files
+# For manifest.webmanifest Content-Type issue, we need to use a different approach
+
+# Alternative: Use _headers file for Netlify/Vercel
+# For GitHub Pages, the manifest should work with default settings
