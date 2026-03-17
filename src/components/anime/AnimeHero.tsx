@@ -35,7 +35,7 @@ export function AnimeHero({ animes, autoPlayInterval = 5000 }: AnimeHeroProps) {
   const currentAnime = validAnimes[currentIndex];
 
   return (
-    <div className="relative min-h-[35vh] sm:min-h-[40vh] md:h-[55vh] w-full overflow-hidden group" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
+    <div className="relative min-h-[40vh] sm:min-h-[45vh] md:h-[65vh] lg:h-[70vh] w-full overflow-hidden group" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
       <div className="absolute inset-0">
         <ImageWithFallback
           src={currentAnime.thumb}
@@ -48,7 +48,7 @@ export function AnimeHero({ animes, autoPlayInterval = 5000 }: AnimeHeroProps) {
         <div className="absolute inset-0 bg-gradient-to-r from-black via-black/40 to-transparent" />
       </div>
 
-      <div className="absolute inset-0 flex items-center md:items-center items-end pb-8 md:pb-0">
+      <div className="absolute inset-0 flex items-center md:items-center items-end pb-12 md:pb-16">
         <div className="mx-auto px-4 sm:px-6 lg:px-8 w-full pt-8 md:pt-12">
           <div className="flex flex-col md:flex-row gap-4 md:gap-8 items-start md:items-end">
             <div className="w-full md:w-2/3 space-y-2 md:space-y-4">
@@ -88,7 +88,7 @@ export function AnimeHero({ animes, autoPlayInterval = 5000 }: AnimeHeroProps) {
 
               <div className="flex flex-wrap gap-2 pt-1 md:pt-2">
                 <Link
-                  to={`/anime/${currentAnime.endpoint}`}
+                  to={currentAnime.last_episode_slug ? `/anime/${currentAnime.endpoint}/${currentAnime.last_episode_slug}` : `/anime/${currentAnime.endpoint}`}
                   className="px-3 sm:px-5 md:px-6 py-1.5 md:py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg flex items-center gap-1 md:gap-1.5 transition-colors text-xs sm:text-sm w-fit"
                 >
                   <Play className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 fill-current" />

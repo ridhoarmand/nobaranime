@@ -18,7 +18,7 @@ const getDayName = (dateString?: string | null) => {
 interface AnimeCardProps {
   anime: Anime;
   showReleaseDayBadge?: boolean;
-  directToLatestEpisode?: boolean; // If true, click goes directly to latest episode
+  directToLatestEpisode?: boolean;
 }
 
 export function AnimeCard({ anime, showReleaseDayBadge = false, directToLatestEpisode = false }: AnimeCardProps) {
@@ -28,8 +28,8 @@ export function AnimeCard({ anime, showReleaseDayBadge = false, directToLatestEp
   const latestWatchedEp = hasWatched ? Math.max(...watchedEpisodes) : null;
   
   // Determine the link destination
-  const linkTo = directToLatestEpisode && anime.latest_episode
-    ? `/anime/${anime.endpoint}/${anime.latest_episode.episode_number}`
+  const linkTo = directToLatestEpisode && anime.last_episode_slug
+    ? `/anime/${anime.endpoint}/${anime.last_episode_slug}`
     : `/anime/${anime.endpoint}`;
 
   return (
@@ -47,18 +47,25 @@ export function AnimeCard({ anime, showReleaseDayBadge = false, directToLatestEp
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-60 transition-opacity group-hover:opacity-80" />
 
         {/* Status Badge */}
-        <div className={`absolute top-2 ${hasWatched ? 'left-2 md:left-2' : 'left-2'} px-2 py-1 rounded-md bg-black/60 backdrop-blur-md text-[10px] font-medium text-white uppercase tracking-wider`}>{anime.status}</div>
+        <div className="absolute top-2 left-2 px-2 py-1 rounded-md bg-black/60 backdrop-blur-md text-[10px] font-medium text-white uppercase tracking-wider">{anime.status}</div>
 
-        {/* Rating Badge */}
-        {anime.score && <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded-md bg-yellow-500/90 text-black text-[10px] font-bold">★ {anime.score}</div>}
+        {/* Top Right Badges */}
+        <div className="absolute top-2 right-2 flex flex-col gap-1 items-end z-10">
+          {/* Rating Badge */}
+          {anime.score && (
+            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-yellow-500/90 text-black text-[10px] font-bold shadow-sm">
+              ★ {anime.score}
+            </div>
+          )}
 
-        {/* Watched Indicator */}
-        {hasWatched && (
-          <div className="absolute top-2 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md bg-green-600/90 text-white text-[10px] font-bold shadow-sm flex items-center gap-1">
-            <CheckCircle className="w-3 h-3" />
-            <span>Watched Ep {latestWatchedEp}</span>
-          </div>
-        )}
+          {/* Watched Indicator */}
+          {hasWatched && (
+            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-green-600/90 text-white text-[10px] font-bold shadow-sm backdrop-blur-md">
+              <CheckCircle className="w-2.5 h-2.5" />
+              <span>Ep {latestWatchedEp}</span>
+            </div>
+          )}
+        </div>
 
         {/* Episode Badge */}
         {(anime.last_episode_number || anime.latest_episode) && (

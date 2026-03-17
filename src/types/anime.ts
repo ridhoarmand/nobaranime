@@ -17,6 +17,7 @@ export interface Anime {  id: number;
   updated_at?: string;
   last_episode_number?: number | null;
   last_episode_date?: string | null;
+  last_episode_slug?: string | null;
   genres?: Genre[];
   episodes?: Episode[];
   batches?: Batch[];

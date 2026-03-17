@@ -9,7 +9,7 @@ interface AnimeListingPageProps {
   fetchMore: (page: number) => Promise<{ data: Anime[]; page?: number; total_pages?: number }>;
   showReleaseDayBadge?: boolean;
   groupByWeek?: boolean;
-  directToLatestEpisode?: boolean; // If true, cards link directly to latest episode
+  directToLatestEpisode?: boolean;
 }
 
 export function AnimeListingPage({ title, initialData, fetchMore, showReleaseDayBadge = false, groupByWeek = false, directToLatestEpisode = false }: AnimeListingPageProps) {

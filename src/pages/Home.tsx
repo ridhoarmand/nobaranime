@@ -55,7 +55,7 @@ export function Home() {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-4">
             {ongoing?.data?.slice(0, 14).map((item) => (
-              <AnimeCard key={item.id} anime={item} showReleaseDayBadge />
+              <AnimeCard key={item.id} anime={item} showReleaseDayBadge directToLatestEpisode />
             ))}
           </div>
         </section>
