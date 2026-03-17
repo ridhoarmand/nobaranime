@@ -3,8 +3,71 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/icon-192.png" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="NobarAnime" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <title>NobarAnime</title>
+    
+    <!-- Content Security Policy to block ads and trackers -->
+    <!-- Allows: self, data: for images, and known streaming provider domains -->
+    <!-- Blocks: known ad networks, popups, and tracking domains -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+        default-src 'self' https:;
+        script-src 'self' 'unsafe-inline' blob:;
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+        img-src 'self' data: https: blob:;
+        font-src 'self' https://fonts.gstatic.com;
+        connect-src 'self' https://api.supabase.co https://*.supabase.co https://*.film.idho.eu.org;
+        frame-src 'self' https:;
+        child-src 'self' blob:;
+        media-src 'self' https: blob:;
+        object-src 'none';
+        base-uri 'self';
+        form-action 'self';
+        block-all-mixed-content;
+        upgrade-insecure-requests;
+      "
+    />
+    
+    <!-- Permissions Policy to restrict browser features that could be used for ads/tracking -->
+    <meta
+      http-equiv="Permissions-Policy"
+      content="
+        accelerometer=(),
+        ambient-light-sensor=(),
+        autoplay=(self),
+        battery=(),
+        camera=(),
+        cross-origin-isolated=(),
+        display-capture=(),
+        document-domain=(),
+        encrypted-media=(self),
+        execution-while-not-rendered=(),
+        execution-while-out-of-viewport=(),
+        fullscreen=(self),
+        geolocation=(),
+        gyroscope=(),
+        keyboard-map=(),
+        magnetometer=(),
+        microphone=(),
+        midi=(),
+        navigation-override=(),
+        payment=(),
+        picture-in-picture=(self),
+        publickey-credentials-get=(),
+        screen-wake-lock=(),
+        sync-xhr=(),
+        usb=(),
+        web-share=(),
+        xr-spatial-tracking=()
+      "
+    />
   </head>
   <body>
     <div id="root"></div>
