@@ -9,9 +9,10 @@ interface AnimeListingPageProps {
   fetchMore: (page: number) => Promise<{ data: Anime[]; page?: number; total_pages?: number }>;
   showReleaseDayBadge?: boolean;
   groupByWeek?: boolean;
+  directToLatestEpisode?: boolean; // If true, cards link directly to latest episode
 }
 
-export function AnimeListingPage({ title, initialData, fetchMore, showReleaseDayBadge = false, groupByWeek = false }: AnimeListingPageProps) {
+export function AnimeListingPage({ title, initialData, fetchMore, showReleaseDayBadge = false, groupByWeek = false, directToLatestEpisode = false }: AnimeListingPageProps) {
   const [data, setData] = useState<Anime[]>(initialData);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -113,7 +114,7 @@ export function AnimeListingPage({ title, initialData, fetchMore, showReleaseDay
               <h2 className="text-xl font-bold text-gray-300 mb-4 border-b border-white/10 pb-2">{groupName}</h2>
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-4">
                 {animes.map((anime, index) => (
-                  <AnimeCard key={`${anime.id}-${index}`} anime={anime} showReleaseDayBadge={showReleaseDayBadge} />
+                  <AnimeCard key={`${anime.id}-${index}`} anime={anime} showReleaseDayBadge={showReleaseDayBadge} directToLatestEpisode={directToLatestEpisode} />
                 ))}
               </div>
             </div>
@@ -122,7 +123,7 @@ export function AnimeListingPage({ title, initialData, fetchMore, showReleaseDay
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-4">
           {data.map((anime, index) => (
-            <AnimeCard key={`${anime.id}-${index}`} anime={anime} showReleaseDayBadge={showReleaseDayBadge} />
+            <AnimeCard key={`${anime.id}-${index}`} anime={anime} showReleaseDayBadge={showReleaseDayBadge} directToLatestEpisode={directToLatestEpisode} />
           ))}
         </div>
       )}

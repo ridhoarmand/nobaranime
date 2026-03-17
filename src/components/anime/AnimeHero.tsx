@@ -35,7 +35,7 @@ export function AnimeHero({ animes, autoPlayInterval = 5000 }: AnimeHeroProps) {
   const currentAnime = validAnimes[currentIndex];
 
   return (
-    <div className="relative min-h-[55vh] sm:min-h-[60vh] md:h-[80vh] w-full overflow-hidden group" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
+    <div className="relative min-h-[35vh] sm:min-h-[40vh] md:h-[55vh] w-full overflow-hidden group" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
       <div className="absolute inset-0">
         <ImageWithFallback
           src={currentAnime.thumb}
@@ -48,34 +48,34 @@ export function AnimeHero({ animes, autoPlayInterval = 5000 }: AnimeHeroProps) {
         <div className="absolute inset-0 bg-gradient-to-r from-black via-black/40 to-transparent" />
       </div>
 
-      <div className="absolute inset-0 flex items-center md:items-center items-end pb-12 md:pb-0">
-        <div className="mx-auto px-4 sm:px-6 lg:px-8 w-full pt-16 md:pt-20">
+      <div className="absolute inset-0 flex items-center md:items-center items-end pb-8 md:pb-0">
+        <div className="mx-auto px-4 sm:px-6 lg:px-8 w-full pt-8 md:pt-12">
           <div className="flex flex-col md:flex-row gap-4 md:gap-8 items-start md:items-end">
-            <div className="w-full md:w-2/3 space-y-3 md:space-y-6">
-              <div className="flex items-center gap-3">
-                <span className="px-3 py-1 bg-red-600 text-white text-xs font-bold rounded-full uppercase tracking-wider">{currentAnime.status}</span>
+            <div className="w-full md:w-2/3 space-y-2 md:space-y-4">
+              <div className="flex items-center gap-2 md:gap-3 flex-wrap">
+                <span className="px-2 py-0.5 md:px-3 md:py-1 bg-red-600 text-white text-xs font-bold rounded-full uppercase tracking-wider whitespace-nowrap">{currentAnime.status}</span>
                 {currentAnime.score && (
-                  <div className="flex items-center gap-1 text-yellow-400 text-sm font-medium">
-                    <Star className="w-4 h-4 fill-current" />
+                  <div className="flex items-center gap-1 text-yellow-400 text-xs md:text-sm font-medium">
+                    <Star className="w-3 h-3 md:w-4 md:h-4 fill-current" />
                     <span>{currentAnime.score}</span>
                   </div>
                 )}
                 {currentAnime.latest_episode && (
-                  <span className="px-3 py-1 bg-white/10 backdrop-blur-sm text-white text-xs font-medium rounded-full border border-white/20">
-                    Episode {currentAnime.latest_episode.episode_number}
+                  <span className="px-2 py-0.5 md:px-3 md:py-1 bg-white/10 backdrop-blur-sm text-white text-xs font-medium rounded-full border border-white/20 whitespace-nowrap">
+                    Ep {currentAnime.latest_episode.episode_number}
                   </span>
                 )}
               </div>
 
-              <h1 className="text-3xl md:text-5xl lg:text-6xl font-black text-white leading-tight line-clamp-2 md:line-clamp-3 drop-shadow-lg">{currentAnime.title}</h1>
+              <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-black text-white leading-tight line-clamp-2 md:line-clamp-3 drop-shadow-lg">{currentAnime.title}</h1>
 
-              <div className="flex items-center gap-4 text-xs md:text-sm text-gray-300">
+              <div className="flex items-center gap-2 md:gap-4 text-xs text-gray-300 flex-wrap">
                 <div className="flex items-center gap-1">
-                  <Calendar className="w-4 h-4" />
+                  <Calendar className="w-3 h-3 md:w-4 md:h-4" />
                   <span>{currentAnime.broadcast_day || 'Unknown Day'}</span>
                 </div>
                 <span>•</span>
-                <span>{currentAnime.total_episodes ? `${currentAnime.total_episodes} Episodes` : '? Episodes'}</span>
+                <span>{currentAnime.total_episodes ? `${currentAnime.total_episodes} Eps` : '? Eps'}</span>
                 {currentAnime.latest_episode?.date && (
                   <>
                     <span>•</span>
@@ -84,21 +84,21 @@ export function AnimeHero({ animes, autoPlayInterval = 5000 }: AnimeHeroProps) {
                 )}
               </div>
 
-              <p className="text-gray-300 text-sm md:text-lg line-clamp-3 max-w-2xl hidden md:block">{currentAnime.synopsis || 'No synopsis available.'}</p>
+              <p className="text-gray-300 text-xs sm:text-sm md:text-base line-clamp-2 md:line-clamp-3 max-w-xl">{currentAnime.synopsis || 'No synopsis available.'}</p>
 
-              <div className="flex flex-wrap gap-2 sm:gap-3 md:gap-4 pt-2 md:pt-4">
+              <div className="flex flex-wrap gap-2 pt-1 md:pt-2">
                 <Link
                   to={`/anime/${currentAnime.endpoint}`}
-                  className="px-4 sm:px-6 md:px-8 py-2 md:py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg flex items-center gap-1.5 md:gap-2 transition-colors text-xs sm:text-sm md:text-base w-fit"
+                  className="px-3 sm:px-5 md:px-6 py-1.5 md:py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg flex items-center gap-1 md:gap-1.5 transition-colors text-xs sm:text-sm w-fit"
                 >
-                  <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 fill-current" />
+                  <Play className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 fill-current" />
                   Watch Now
                 </Link>
                 <Link
                   to={`/anime/${currentAnime.endpoint}`}
-                  className="px-4 sm:px-6 md:px-8 py-2 md:py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-lg flex items-center gap-1.5 md:gap-2 backdrop-blur-sm transition-colors text-xs sm:text-sm md:text-base border border-white/10 w-fit"
+                  className="px-3 sm:px-5 md:px-6 py-1.5 md:py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold rounded-lg flex items-center gap-1 md:gap-1.5 backdrop-blur-sm transition-colors text-xs sm:text-sm border border-white/10 w-fit"
                 >
-                  <Info className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
+                  <Info className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4" />
                   Details
                 </Link>
               </div>

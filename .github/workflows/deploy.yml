@@ -32,7 +32,7 @@ jobs:
         with:
           portainerUrl: '${{ secrets.PORTAINER_URL }}'
           accessToken: '${{ secrets.PORTAINER_ACCESS_TOKEN }}'
-          stackId: 27
+          stackId: 39
           endpointId: 3
 
       - name: Logout from Docker Hub

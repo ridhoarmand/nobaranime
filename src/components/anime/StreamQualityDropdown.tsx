@@ -9,11 +9,41 @@ interface StreamQualityDropdownProps {
   onStreamSelect: (stream: Stream) => void;
 }
 
-// Providers known to have fewer ads (curated list)
-const LOW_ADS_PROVIDERS = ['mega', 'google drive', 'youtube'];
+// Providers with LOW ads (safe, minimal interruptions)
+const LOW_ADS_PROVIDERS = [
+  'mega',
+  'google drive',
+  'youtube',
+  'vimeo',
+  'dailymotion',
+];
 
-// Providers known to have heavy ads
-const HIGH_ADS_PROVIDERS = ['vidhide', 'filedon', 'ondesu', 'updesu', 'odstream', 'pdrain'];
+// Providers with HIGH ads (frequent popups, redirects, pre-roll ads)
+const HIGH_ADS_PROVIDERS = [
+  'vidhide',
+  'filedon',
+  'ondesu',
+  'ondesuhd',
+  'updesu',
+  'ondesu3',
+  'odstream',
+  'pdrain',
+  'streamtape',
+  'doodstream',
+  'embedsu',
+  'desufile',
+  'filedesu',
+  'gogoplay',
+  'gogohd',
+  'streamani',
+  'aniplay',
+  'aniwatch',
+  'animeembed',
+  'embedasian',
+  'playerasian',
+  'watchasian',
+  'asianembed',
+];
 
 export function StreamQualityDropdown({ streams, currentStream, onStreamSelect }: StreamQualityDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -43,17 +73,17 @@ export function StreamQualityDropdown({ streams, currentStream, onStreamSelect }
 
   const getAdWarningLevel = (provider: string): 'low' | 'medium' | 'high' => {
     const providerLower = provider.toLowerCase();
-    
+
     // Check if it's a known low-ads provider
     if (LOW_ADS_PROVIDERS.some(p => providerLower.includes(p))) {
       return 'low';
     }
-    
+
     // Check if it's a known high-ads provider
     if (HIGH_ADS_PROVIDERS.some(p => providerLower.includes(p))) {
       return 'high';
     }
-    
+
     // Default to medium
     return 'medium';
   };
@@ -75,15 +105,15 @@ export function StreamQualityDropdown({ streams, currentStream, onStreamSelect }
                 const warningLevel = getAdWarningLevel(currentStream.provider);
                 if (warningLevel === 'low') {
                   return (
-                    <span title="Low ads risk">
-                      <ShieldCheck className="w-4 h-4 text-green-500 inline ml-1" />
+                    <span className="flex items-center gap-1 text-green-500 text-xs" title="Minim iklan">
+                      <ShieldCheck className="w-4 h-4" />
                     </span>
                   );
                 }
                 if (warningLevel === 'high') {
                   return (
-                    <span title="May contain ads">
-                      <ShieldAlert className="w-4 h-4 text-amber-500 inline ml-1" />
+                    <span className="flex items-center gap-1 text-amber-500 text-xs" title="Banyak iklan">
+                      <ShieldAlert className="w-4 h-4" />
                     </span>
                   );
                 }
@@ -121,15 +151,15 @@ export function StreamQualityDropdown({ streams, currentStream, onStreamSelect }
                           : 'bg-black/50 border-white/5 text-gray-300 hover:bg-white/10 hover:text-white',
                       )}
                     >
-                      <span className="flex items-center gap-1">
-                        {stream.provider}
+                      <div className="flex items-center gap-1">
+                        <span>{stream.provider}</span>
                         {warningLevel === 'low' && (
                           <ShieldCheck className="w-3 h-3 text-green-500" />
                         )}
                         {warningLevel === 'high' && (
                           <ShieldAlert className="w-3 h-3 text-amber-500" />
                         )}
-                      </span>
+                      </div>
                     </button>
                   );
                 })}
@@ -141,7 +171,7 @@ export function StreamQualityDropdown({ streams, currentStream, onStreamSelect }
           <div className="px-4 py-2 bg-zinc-950/50 border-t border-white/5">
             <p className="text-[10px] text-gray-500 flex items-center gap-1">
               <ShieldAlert className="w-3 h-3" />
-              Some providers may show ads. We recommend trying multiple servers.
+              Iklan berasal dari player pihak ketiga. Gunakan uBlock Origin untuk blokir iklan.
             </p>
           </div>
         </div>

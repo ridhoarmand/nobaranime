@@ -19,7 +19,7 @@ export function Ongoing() {
 
   return (
     <main className="bg-black min-h-screen pt-4 pb-20 px-4 sm:px-6 lg:px-8">
-      <AnimeListingPage title="Rilisan Terbaru" initialData={initialData} fetchMore={async (page) => AnimeApi.getOngoing(page)} showReleaseDayBadge groupByWeek />
+      <AnimeListingPage title="Rilisan Terbaru" initialData={initialData} fetchMore={async (page) => AnimeApi.getOngoing(page)} showReleaseDayBadge groupByWeek directToLatestEpisode />
     </main>
   );
 }

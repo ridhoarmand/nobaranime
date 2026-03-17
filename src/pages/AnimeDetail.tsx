@@ -3,8 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
 import { ResolutionDownloadDropdown } from '../components/anime/ResolutionDownloadDropdown';
 import { AnimeApi } from '../lib/api';
-import { Play, Calendar, Star, Info, Hash, Clock, MonitorPlay, Download, Tv } from 'lucide-react';
+import { Play, Calendar, Star, Info, Hash, Clock, MonitorPlay, Download, Tv, Check } from 'lucide-react';
 import { ImageWithFallback } from '../components/ImageWithFallback';
+import { useWatchHistory } from '../hooks/useWatchHistory';
 import { Batch, DownloadLink } from "../types/anime";
 
 
@@ -46,6 +47,7 @@ function BatchItem({ batch }: { batch: Batch }) {
 export function AnimeDetail() {
   const { slug } = useParams<{ slug: string }>();
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
+  const { isWatched } = useWatchHistory();
   const {
     data: response,
     isLoading,
@@ -189,23 +191,29 @@ export function AnimeDetail() {
               <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
                 {data.episodes?.map((ep) => {
                   const epNumber = ep.title.match(/Episode\s+(\d+)/i)?.[1] || ep.episode_number;
+                  const watched = isWatched(ep.endpoint);
                   return (
                     <Link
                       key={ep.id}
                       to={`/anime/${slug}/${ep.endpoint}`}
-                      className="group relative bg-zinc-900 hover:bg-zinc-800 rounded-lg p-2 md:p-3 border border-white/5 hover:border-red-500/50 transition-all flex flex-col justify-between h-full text-center md:text-left"
+                      className={`group relative bg-zinc-900 hover:bg-zinc-800 rounded-lg p-2 md:p-3 border transition-all flex flex-col justify-between h-full text-center md:text-left ${watched ? 'border-green-500/50 hover:border-green-500/80 bg-green-900/10' : 'border-white/5 hover:border-red-500/50'}`}
                     >
+                      {watched && (
+                        <div className="absolute top-1 right-1 md:top-2 md:right-2">
+                          <Check className="w-3 h-3 md:w-4 md:h-4 text-green-500" />
+                        </div>
+                      )}
                       <div className="flex flex-col md:flex-row md:justify-between items-center md:items-start mb-1 md:mb-2 w-full gap-1">
-                        <div className="text-[9px] md:text-[10px] text-gray-500 uppercase tracking-widest hidden md:block">Episode</div>
+                        <div className={`text-[9px] md:text-[10px] uppercase tracking-widest hidden md:block ${watched ? 'text-green-500/70' : 'text-gray-500'}`}>Episode</div>
                         <div className="opacity-0 group-hover:opacity-100 transition-opacity hidden md:block">
                           <Play className="w-3.5 h-3.5 text-red-500 fill-current" />
                         </div>
                       </div>
-                      <div className="text-base sm:text-lg md:text-2xl font-black text-white group-hover:text-red-500 transition-colors mb-0.5 leading-none">
-                        <span className="md:hidden text-[10px] font-normal text-gray-500 mr-1">Ep</span>
+                      <div className={`text-base sm:text-lg md:text-2xl font-black transition-colors mb-0.5 leading-none ${watched ? 'text-green-500 group-hover:text-green-400' : 'text-white group-hover:text-red-500'}`}>
+                        <span className={`md:hidden text-[10px] font-normal mr-1 ${watched ? 'text-green-500/70' : 'text-gray-500'}`}>Ep</span>
                         {epNumber}
                       </div>
-                      <div className="mt-1 md:mt-2 text-[8px] md:text-[10px] text-gray-400 truncate w-full">{ep.date?.split(' ')[0]}</div>
+                      <div className={`mt-1 md:mt-2 text-[8px] md:text-[10px] truncate w-full ${watched ? 'text-green-500/50' : 'text-gray-400'}`}>{ep.date?.split(' ')[0]}</div>
                     </Link>
                   );
                 })}

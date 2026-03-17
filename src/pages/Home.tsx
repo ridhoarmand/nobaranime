@@ -30,15 +30,15 @@ export function Home() {
     <main className="bg-black min-h-screen pb-20">
       {ongoing?.data && ongoing.data.length > 0 && <AnimeHero animes={ongoing.data.slice(0, 5)} />}
 
-      <div className="mx-auto px-4 sm:px-6 lg:px-8 sm:mt-4 mt-4 flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
-        <Link to="/schedule" className="flex items-center gap-2 px-6 py-3 bg-zinc-900 hover:bg-red-600 rounded-xl transition-all font-bold whitespace-nowrap">
-          <Calendar className="w-5 h-5" /> Schedule
+      <div className="mx-auto px-4 sm:px-6 lg:px-8 sm:mt-6 mt-4 grid grid-cols-3 gap-2 sm:gap-4">
+        <Link to="/schedule" className="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-6 py-2.5 sm:py-3 bg-zinc-900/80 hover:bg-red-600 rounded-xl transition-all font-bold whitespace-nowrap text-[11px] sm:text-base text-gray-300 hover:text-white">
+          <Calendar className="w-5 h-5 sm:w-5 sm:h-5" /> <span>Schedule</span>
         </Link>
-        <Link to="/genres" className="flex items-center gap-2 px-6 py-3 bg-zinc-900 hover:bg-blue-600 rounded-xl transition-all font-bold whitespace-nowrap">
-          <Grid className="w-5 h-5" /> Genres
+        <Link to="/genres" className="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-6 py-2.5 sm:py-3 bg-zinc-900/80 hover:bg-blue-600 rounded-xl transition-all font-bold whitespace-nowrap text-[11px] sm:text-base text-gray-300 hover:text-white">
+          <Grid className="w-5 h-5 sm:w-5 sm:h-5" /> <span>Genres</span>
         </Link>
-        <Link to="/list" className="flex items-center gap-2 px-6 py-3 bg-zinc-900 hover:bg-green-600 rounded-xl transition-all font-bold whitespace-nowrap">
-          <ListFilter className="w-5 h-5" /> Directory (A-Z)
+        <Link to="/list" className="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-6 py-2.5 sm:py-3 bg-zinc-900/80 hover:bg-green-600 rounded-xl transition-all font-bold whitespace-nowrap text-[11px] sm:text-base text-gray-300 hover:text-white">
+          <ListFilter className="w-5 h-5 sm:w-5 sm:h-5" /> <span>Directory</span>
         </Link>
       </div>
 

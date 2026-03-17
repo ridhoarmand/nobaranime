@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';import { Anime } from '../../types/anime';
-import { PlayCircle } from 'lucide-react';
+import { PlayCircle, CheckCircle } from 'lucide-react';
 import { ImageWithFallback } from '../ImageWithFallback';
+import { useWatchHistory } from '../../hooks/useWatchHistory';
 
 const getDayName = (dateString?: string | null) => {
   if (!dateString) return '';
@@ -17,11 +18,22 @@ const getDayName = (dateString?: string | null) => {
 interface AnimeCardProps {
   anime: Anime;
   showReleaseDayBadge?: boolean;
+  directToLatestEpisode?: boolean; // If true, click goes directly to latest episode
 }
 
-export function AnimeCard({ anime, showReleaseDayBadge = false }: AnimeCardProps) {
+export function AnimeCard({ anime, showReleaseDayBadge = false, directToLatestEpisode = false }: AnimeCardProps) {
+  const { getWatchedEpisodesForAnime } = useWatchHistory();
+  const watchedEpisodes = getWatchedEpisodesForAnime(anime.endpoint);
+  const hasWatched = watchedEpisodes.length > 0;
+  const latestWatchedEp = hasWatched ? Math.max(...watchedEpisodes) : null;
+  
+  // Determine the link destination
+  const linkTo = directToLatestEpisode && anime.latest_episode
+    ? `/anime/${anime.endpoint}/${anime.latest_episode.episode_number}`
+    : `/anime/${anime.endpoint}`;
+
   return (
-    <Link to={`/anime/${anime.endpoint}`} className="group relative block overflow-hidden rounded-lg md:rounded-xl bg-zinc-900/50 transition-all hover:bg-zinc-800/50">
+    <Link to={linkTo} className="group relative block overflow-hidden rounded-lg md:rounded-xl bg-zinc-900/50 transition-all hover:bg-zinc-800/50">
       {/* Smaller aspect ratio on mobile (2:3), normal on desktop (3:4) */}
       <div className="aspect-[2/3] md:aspect-[3/4] overflow-hidden rounded-lg md:rounded-xl relative">
         <ImageWithFallback
@@ -35,10 +47,18 @@ export function AnimeCard({ anime, showReleaseDayBadge = false }: AnimeCardProps
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-60 transition-opacity group-hover:opacity-80" />
 
         {/* Status Badge */}
-        <div className="absolute top-2 left-2 px-2 py-1 rounded-md bg-black/60 backdrop-blur-md text-[10px] font-medium text-white uppercase tracking-wider">{anime.status}</div>
+        <div className={`absolute top-2 ${hasWatched ? 'left-2 md:left-2' : 'left-2'} px-2 py-1 rounded-md bg-black/60 backdrop-blur-md text-[10px] font-medium text-white uppercase tracking-wider`}>{anime.status}</div>
 
         {/* Rating Badge */}
         {anime.score && <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded-md bg-yellow-500/90 text-black text-[10px] font-bold">★ {anime.score}</div>}
+
+        {/* Watched Indicator */}
+        {hasWatched && (
+          <div className="absolute top-2 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md bg-green-600/90 text-white text-[10px] font-bold shadow-sm flex items-center gap-1">
+            <CheckCircle className="w-3 h-3" />
+            <span>Watched Ep {latestWatchedEp}</span>
+          </div>
+        )}
 
         {/* Episode Badge */}
         {(anime.last_episode_number || anime.latest_episode) && (

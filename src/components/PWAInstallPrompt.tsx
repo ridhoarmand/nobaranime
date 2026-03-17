@@ -1,10 +1,29 @@
 import { X } from 'lucide-react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import { useState } from 'react';
+
+// Check if device is mobile based on screen width and user agent
+function isMobileDevice(): boolean {
+  if (typeof window === 'undefined') return false;
+  
+  // Check screen width
+  if (window.innerWidth < 768) {
+    return true;
+  }
+  
+  // Check user agent for mobile devices
+  const userAgent = navigator.userAgent || navigator.vendor;
+  const mobileRegex = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i;
+  
+  return mobileRegex.test(userAgent);
+}
 
 export function PWAInstallPrompt() {
   const { isInstallable, isInstalled, install } = usePWAInstall();
+  const [isMobile] = useState(() => isMobileDevice());
 
-  if (!isInstallable || isInstalled) {
+  // Only show on mobile devices
+  if (!isMobile || !isInstallable || isInstalled) {
     return null;
   }
 

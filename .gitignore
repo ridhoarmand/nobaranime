@@ -12,6 +12,7 @@ dist
 dist-ssr
 dev-dist
 *.local
+ADBLOCK_IMPLEMENTATION.md
 
 # Editor directories and files
 .vscode/*

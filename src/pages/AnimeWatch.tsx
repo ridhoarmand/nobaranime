@@ -1,12 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
+import { useEffect } from 'react';
 import { AnimeApi } from '../lib/api';
 import { AnimePlayer } from '../components/anime/AnimePlayer';
 import { ResolutionDownloadDropdown } from '../components/anime/ResolutionDownloadDropdown';
 import { ChevronLeft, ChevronRight, Home, List } from 'lucide-react';
+import { useWatchHistory } from '../hooks/useWatchHistory';
 
 export function AnimeWatch() {
   const { slug, episode } = useParams<{ slug: string; episode: string }>();
+  const { addWatched } = useWatchHistory();
 
   const {
     data: response,
@@ -18,6 +21,20 @@ export function AnimeWatch() {
     enabled: !!episode,
     gcTime: 0, // Do not cache episode details to always get the latest next_episode URL
   });
+
+  // Record watch history when episode loads
+  useEffect(() => {
+    if (!isLoading && response?.data && slug && episode) {
+      const data = response.data;
+      addWatched({
+        animeSlug: slug,
+        animeTitle: data.anime?.title || 'Unknown',
+        animeThumb: data.anime?.thumb || '',
+        episodeNumber: data.episode_number,
+        episodeSlug: episode,
+      });
+    }
+  }, [isLoading, response, slug, episode, addWatched]);
 
   if (isLoading) {
     return (
@@ -42,16 +59,16 @@ export function AnimeWatch() {
   return (
     <main className="bg-black min-h-screen text-white pt-4 pb-20 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center gap-2 text-sm text-gray-400 mb-6 overflow-x-auto pb-2">
-          <Link to="/" className="hover:text-red-500 transition-colors flex items-center gap-1">
-            <Home className="w-4 h-4" /> Home
+        <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-400 mb-4 sm:mb-6">
+          <Link to="/" className="hover:text-red-500 transition-colors flex items-center gap-1 shrink-0">
+            <Home className="w-4 h-4 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Home</span>
           </Link>
-          <span>/</span>
-          <Link to={`/anime/${slug}`} className="hover:text-red-500 transition-colors whitespace-nowrap">
+          <span className="shrink-0">/</span>
+          <Link to={`/anime/${slug}`} className="hover:text-red-500 transition-colors truncate max-w-[150px] sm:max-w-[300px]">
             {animeInfo?.title || 'Anime Details'}
           </Link>
-          <span>/</span>
-          <span className="text-white font-medium whitespace-nowrap text-red-500">Episode {data.episode_number}</span>
+          <span className="shrink-0">/</span>
+          <span className="text-white font-medium shrink-0 text-red-500">Episode {data.episode_number}</span>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
