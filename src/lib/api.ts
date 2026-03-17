@@ -12,18 +12,10 @@ export class AnimeApi {
       headers['x-api-key'] = import.meta.env.VITE_ANIME_API_KEY;
     }
 
-    const startTime = import.meta.env.DEV ? performance.now() : 0;
-
     const res = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers,
     });
-
-    const endTime = import.meta.env.DEV ? performance.now() : 0;
-
-    if (import.meta.env.DEV) {
-      console.log(`📡 API HIT [${res.status}]: ${API_BASE_URL}${endpoint} - ${(endTime - startTime).toFixed(2)}ms`);
-    }
 
     if (!res.ok) {
       throw new Error(`Anime API Error: ${res.status} ${res.statusText}`);
