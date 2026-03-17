@@ -40,20 +40,29 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
         runtimeCaching: [
           {
-            urlPattern: /^https?:\/\/.*\.json$/i,
-            handler: 'NetworkFirst',
+            // Cache API responses - use StaleWhileRevalidate for faster loading
+            urlPattern: ({ url }) => {
+              return url.hostname === 'anime-api.idho.eu.org' || url.hostname === 'api.supabase.co';
+            },
+            handler: 'StaleWhileRevalidate',
             options: {
-              cacheName: 'json-cache',
+              cacheName: 'api-cache',
               expiration: {
                 maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24, // 1 day
+                maxAgeSeconds: 60 * 60, // 1 hour
               },
-              networkTimeoutSeconds: 3,
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
             },
           },
           {
+            // Cache images
             urlPattern: /^https?:\/\/.*\.(png|jpg|jpeg|gif|webp|svg|ico)$/i,
             handler: 'CacheFirst',
             options: {
@@ -62,21 +71,6 @@ export default defineConfig({
                 maxEntries: 100,
                 maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
               },
-            },
-          },
-          {
-            urlPattern: ({ url }) => {
-              // Cache the anime API domain
-              return url.hostname === 'anime-api.idho.eu.org' || url.hostname === 'api.supabase.co';
-            },
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 5, // 5 minutes
-              },
-              networkTimeoutSeconds: 3,
             },
           },
         ],
