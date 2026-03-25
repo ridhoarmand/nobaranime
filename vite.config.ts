@@ -49,16 +49,17 @@ export default defineConfig({
         skipWaiting: true,
         runtimeCaching: [
           {
-            // Cache API responses - use StaleWhileRevalidate for faster loading
+            // Prefer fresh API responses so new episodes appear immediately
             urlPattern: ({ url }) => {
               return url.hostname === 'anime-api.idho.eu.org' || url.hostname === 'api.supabase.co';
             },
-            handler: 'StaleWhileRevalidate',
+            handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',
+              networkTimeoutSeconds: 4,
               expiration: {
                 maxEntries: 50,
-                maxAgeSeconds: 60 * 60, // 1 hour
+                maxAgeSeconds: 60 * 5, // 5 minutes
               },
               cacheableResponse: {
                 statuses: [0, 200],

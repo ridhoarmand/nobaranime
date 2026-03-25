@@ -5,6 +5,9 @@ export class AnimeApi {
   private static async fetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      Pragma: 'no-cache',
+      Expires: '0',
       ...(options?.headers as Record<string, string>),
     };
 
@@ -15,6 +18,7 @@ export class AnimeApi {
     const res = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers,
+      cache: 'no-store',
     });
 
     if (!res.ok) {
@@ -26,21 +30,7 @@ export class AnimeApi {
   }
 
   static async getOngoing(page = 1) {
-    const res = await this.fetch<AnimeResponse<Anime[]>>(`/ongoing?page=${page}`);
-
-    // START TEMPORARY MOCK for latest_episode
-    if (res.data) {
-      res.data = res.data.map((anime) => ({
-        ...anime,
-        latest_episode: anime.latest_episode || {
-          episode_number: Math.floor(Math.random() * 20) + 1, // Random ep number for demo
-          date: new Date().toISOString().split('T')[0], // Today's date
-        },
-      }));
-    }
-    // END TEMPORARY MOCK
-
-    return res;
+    return this.fetch<AnimeResponse<Anime[]>>(`/ongoing?page=${page}`);
   }
 
   static async getCompleted(page = 1) {

@@ -47,7 +47,7 @@ function BatchItem({ batch }: { batch: Batch }) {
 export function AnimeDetail() {
   const { slug } = useParams<{ slug: string }>();
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
-  const { isWatched } = useWatchHistory();
+  const { isWatched, getWatchedEpisodesForAnime } = useWatchHistory();
   const {
     data: response,
     isLoading,
@@ -76,6 +76,17 @@ export function AnimeDetail() {
   }
 
   const data = response.data;
+  const watchedEpisodeNumbers = slug ? getWatchedEpisodesForAnime(slug) : [];
+  const latestWatchedEpisode = watchedEpisodeNumbers.length > 0 ? Math.max(...watchedEpisodeNumbers) : 0;
+
+  const latestEpisodeEntry = [...(data.episodes || [])].reduce((latest, current) => {
+    const latestNum = Number(latest?.episode_number || 0);
+    const currentNum = Number(current?.episode_number || 0);
+    return currentNum > latestNum ? current : latest;
+  }, data.episodes?.[0]);
+
+  const latestAvailableEpisodeNumber = Number(latestEpisodeEntry?.episode_number || 0);
+  const hasNewEpisodeSuggestion = latestAvailableEpisodeNumber > 0 && latestAvailableEpisodeNumber > latestWatchedEpisode;
 
   return (
     <main className="bg-black min-h-screen text-white pb-20">
@@ -187,6 +198,19 @@ export function AnimeDetail() {
                 </h3>
                 <span className="text-xs md:text-sm text-gray-400 text-left">{data.episodes?.length || 0} Episodes Available</span>
               </div>
+
+              {hasNewEpisodeSuggestion && latestEpisodeEntry?.endpoint && (
+                <Link
+                  to={`/anime/${slug}/${latestEpisodeEntry.endpoint}`}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-emerald-200 hover:bg-emerald-500/20 transition-colors"
+                >
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-wider text-emerald-300/80">Lanjut nonton</p>
+                    <p className="text-sm font-semibold truncate">Episode terbaru sudah rilis, ayo lanjut ke Ep {latestAvailableEpisodeNumber}</p>
+                  </div>
+                  <Play className="w-4 h-4 shrink-0 fill-current" />
+                </Link>
+              )}
 
               <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
                 {data.episodes?.map((ep) => {

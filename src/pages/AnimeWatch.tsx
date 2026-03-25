@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useCallback } from 'react';
 import { AnimeApi } from '../lib/api';
 import { AnimePlayer } from '../components/anime/AnimePlayer';
 import { ResolutionDownloadDropdown } from '../components/anime/ResolutionDownloadDropdown';
@@ -22,19 +22,18 @@ export function AnimeWatch() {
     gcTime: 0, // Do not cache episode details to always get the latest next_episode URL
   });
 
-  // Record watch history when episode loads
-  useEffect(() => {
-    if (!isLoading && response?.data && slug && episode) {
-      const data = response.data;
-      addWatched({
-        animeSlug: slug,
-        animeTitle: data.anime?.title || 'Unknown',
-        animeThumb: data.anime?.thumb || '',
-        episodeNumber: data.episode_number,
-        episodeSlug: episode,
-      });
-    }
-  }, [isLoading, response, slug, episode, addWatched]);
+  const handlePlaybackConfirmed = useCallback(() => {
+    if (!response?.data || !slug || !episode) return;
+
+    const data = response.data;
+    addWatched({
+      animeSlug: slug,
+      animeTitle: data.anime?.title || 'Unknown',
+      animeThumb: data.anime?.thumb || '',
+      episodeNumber: data.episode_number,
+      episodeSlug: episode,
+    });
+  }, [response, slug, episode, addWatched]);
 
   if (isLoading) {
     return (
@@ -75,7 +74,7 @@ export function AnimeWatch() {
           <div className="lg:col-span-2 space-y-6">
             <h1 className="text-xl md:text-2xl font-bold leading-tight">{data.title}</h1>
 
-            <AnimePlayer streams={data.streams || []} title={data.title} />
+            <AnimePlayer key={episode} streams={data.streams || []} title={data.title} onPlaybackConfirmed={handlePlaybackConfirmed} />
 
             <div className="flex items-center justify-between gap-4">
               {data.prev_episode ? (

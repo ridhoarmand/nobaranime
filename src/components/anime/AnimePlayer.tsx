@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Stream } from '../../types/anime';
 import { AlertCircle, Shield, ShieldAlert, ShieldOff, ShieldCheck, Settings } from 'lucide-react';
 import { StreamQualityDropdown } from './StreamQualityDropdown';
@@ -7,12 +7,47 @@ import { getSandboxConfig, generateSandboxAttribute, getAdRiskLevel } from '../.
 interface AnimePlayerProps {
   streams: Stream[];
   title: string;
+  onPlaybackConfirmed?: () => void;
 }
 
-export function AnimePlayer({ streams, title }: AnimePlayerProps) {
+export function AnimePlayer({ streams, title, onPlaybackConfirmed }: AnimePlayerProps) {
   const [currentStream, setCurrentStream] = useState<Stream | null>(null);
   const [sandboxMode, setSandboxMode] = useState<'auto' | 'strict' | 'permissive'>('auto');
   const [showSettings, setShowSettings] = useState(false);
+  const [isPlaybackConfirmed, setIsPlaybackConfirmed] = useState(false);
+  const [isConfirmingPlayback, setIsConfirmingPlayback] = useState(false);
+  const confirmTimerRef = useRef<number | null>(null);
+  const hasConfirmedRef = useRef(false);
+
+  const confirmPlayback = () => {
+    if (hasConfirmedRef.current) return;
+    hasConfirmedRef.current = true;
+
+    if (confirmTimerRef.current !== null) {
+      window.clearTimeout(confirmTimerRef.current);
+      confirmTimerRef.current = null;
+    }
+
+    setIsPlaybackConfirmed(true);
+    setIsConfirmingPlayback(false);
+    onPlaybackConfirmed?.();
+  };
+
+  const handlePlayerInteraction = () => {
+    if (isPlaybackConfirmed || isConfirmingPlayback) return;
+    setIsConfirmingPlayback(true);
+    confirmTimerRef.current = window.setTimeout(() => {
+      confirmPlayback();
+    }, 15000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (confirmTimerRef.current !== null) {
+        window.clearTimeout(confirmTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (streams && streams.length > 0) {
@@ -106,7 +141,7 @@ export function AnimePlayer({ streams, title }: AnimePlayerProps) {
 
   return (
     <div className="space-y-4">
-      <div className="relative aspect-video w-full bg-black rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 group">
+      <div className="relative aspect-video w-full bg-black rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 group" onClick={handlePlayerInteraction}>
         {currentStream ? (
           <>
             {needsSandbox ? (
@@ -134,6 +169,23 @@ export function AnimePlayer({ streams, title }: AnimePlayerProps) {
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
           </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-zinc-900/60 px-3 py-2 text-xs text-zinc-300">
+        <span>
+          {isPlaybackConfirmed
+            ? 'Progress tersimpan: episode ini sudah ditandai ditonton.'
+            : 'Watch badge akan aktif setelah kamu mulai menonton video.'}
+        </span>
+        {!isPlaybackConfirmed && (
+          <button
+            type="button"
+            onClick={confirmPlayback}
+            className="rounded-md bg-green-600 px-2.5 py-1 font-semibold text-white hover:bg-green-500 transition-colors"
+          >
+            Saya sudah play
+          </button>
         )}
       </div>
 

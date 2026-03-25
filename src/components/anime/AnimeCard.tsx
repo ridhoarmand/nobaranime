@@ -24,8 +24,8 @@ interface AnimeCardProps {
 export function AnimeCard({ anime, showReleaseDayBadge = false, directToLatestEpisode = false }: AnimeCardProps) {
   const { getWatchedEpisodesForAnime } = useWatchHistory();
   const watchedEpisodes = getWatchedEpisodesForAnime(anime.endpoint);
-  const hasWatched = watchedEpisodes.length > 0;
-  const latestWatchedEp = hasWatched ? Math.max(...watchedEpisodes) : null;
+  const latestAvailableEpisode = anime.last_episode_number || anime.latest_episode?.episode_number || null;
+  const hasWatchedLatest = latestAvailableEpisode !== null && watchedEpisodes.includes(latestAvailableEpisode);
   
   // Determine the link destination
   const linkTo = directToLatestEpisode && anime.last_episode_slug
@@ -58,11 +58,11 @@ export function AnimeCard({ anime, showReleaseDayBadge = false, directToLatestEp
             </div>
           )}
 
-          {/* Watched Indicator */}
-          {hasWatched && (
+          {/* Watched Indicator: only show when latest available episode is watched */}
+          {hasWatchedLatest && latestAvailableEpisode !== null && (
             <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-green-600/90 text-white text-[10px] font-bold shadow-sm backdrop-blur-md">
               <CheckCircle className="w-2.5 h-2.5" />
-              <span>Ep {latestWatchedEp}</span>
+              <span>Ep {latestAvailableEpisode}</span>
             </div>
           )}
         </div>
