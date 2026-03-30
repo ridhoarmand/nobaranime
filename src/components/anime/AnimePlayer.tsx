@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Stream } from '../../types/anime';
 import { AlertCircle, Shield, ShieldAlert, ShieldOff, ShieldCheck, Settings } from 'lucide-react';
 import { StreamQualityDropdown } from './StreamQualityDropdown';
@@ -7,47 +7,97 @@ import { getSandboxConfig, generateSandboxAttribute, getAdRiskLevel } from '../.
 interface AnimePlayerProps {
   streams: Stream[];
   title: string;
+  estimatedDurationMinutes?: number;
   onPlaybackConfirmed?: () => void;
+  onWatchProgress?: (payload: {
+    elapsedSeconds: number;
+    inferredPercent: number;
+    completed: boolean;
+  }) => void;
 }
 
-export function AnimePlayer({ streams, title, onPlaybackConfirmed }: AnimePlayerProps) {
+const WATCH_COMPLETE_THRESHOLD = 80;
+const DEFAULT_EPISODE_DURATION_MINUTES = 24;
+
+export function AnimePlayer({ streams, title, estimatedDurationMinutes, onPlaybackConfirmed, onWatchProgress }: AnimePlayerProps) {
   const [currentStream, setCurrentStream] = useState<Stream | null>(null);
   const [sandboxMode, setSandboxMode] = useState<'auto' | 'strict' | 'permissive'>('auto');
   const [showSettings, setShowSettings] = useState(false);
+  const [hasStartedWatching, setHasStartedWatching] = useState(false);
+  const [watchSeconds, setWatchSeconds] = useState(0);
   const [isPlaybackConfirmed, setIsPlaybackConfirmed] = useState(false);
-  const [isConfirmingPlayback, setIsConfirmingPlayback] = useState(false);
-  const confirmTimerRef = useRef<number | null>(null);
+  const watchSecondsRef = useRef(0);
+  const emitIntervalRef = useRef(0);
+  const watchIntervalRef = useRef<number | null>(null);
   const hasConfirmedRef = useRef(false);
 
-  const confirmPlayback = () => {
+  const effectiveDurationMinutes = estimatedDurationMinutes && estimatedDurationMinutes > 0
+    ? estimatedDurationMinutes
+    : DEFAULT_EPISODE_DURATION_MINUTES;
+  const estimatedDurationSeconds = Math.round(effectiveDurationMinutes * 60);
+  const inferredPercent = Math.min(100, Math.round((watchSeconds / estimatedDurationSeconds) * 100));
+
+  const emitProgress = useCallback((elapsedSeconds: number) => {
+    const nextPercent = Math.min(100, Math.round((elapsedSeconds / estimatedDurationSeconds) * 100));
+    const completed = nextPercent >= WATCH_COMPLETE_THRESHOLD;
+    onWatchProgress?.({
+      elapsedSeconds,
+      inferredPercent: nextPercent,
+      completed,
+    });
+  }, [estimatedDurationSeconds, onWatchProgress]);
+
+  const confirmPlayback = useCallback(() => {
     if (hasConfirmedRef.current) return;
     hasConfirmedRef.current = true;
 
-    if (confirmTimerRef.current !== null) {
-      window.clearTimeout(confirmTimerRef.current);
-      confirmTimerRef.current = null;
-    }
-
     setIsPlaybackConfirmed(true);
-    setIsConfirmingPlayback(false);
     onPlaybackConfirmed?.();
-  };
+  }, [onPlaybackConfirmed]);
 
   const handlePlayerInteraction = () => {
-    if (isPlaybackConfirmed || isConfirmingPlayback) return;
-    setIsConfirmingPlayback(true);
-    confirmTimerRef.current = window.setTimeout(() => {
-      confirmPlayback();
-    }, 15000);
+    if (hasStartedWatching) return;
+    setHasStartedWatching(true);
+    emitProgress(0);
   };
 
   useEffect(() => {
     return () => {
-      if (confirmTimerRef.current !== null) {
-        window.clearTimeout(confirmTimerRef.current);
+      if (watchIntervalRef.current !== null) {
+        window.clearInterval(watchIntervalRef.current);
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!hasStartedWatching) return;
+
+    watchIntervalRef.current = window.setInterval(() => {
+      if (document.hidden || !document.hasFocus()) return;
+
+      watchSecondsRef.current += 1;
+      const elapsed = watchSecondsRef.current;
+      setWatchSeconds(elapsed);
+
+      if (elapsed - emitIntervalRef.current >= 5) {
+        emitIntervalRef.current = elapsed;
+        emitProgress(elapsed);
+      }
+
+      const percent = Math.min(100, Math.round((elapsed / estimatedDurationSeconds) * 100));
+      if (!hasConfirmedRef.current && percent >= WATCH_COMPLETE_THRESHOLD) {
+        emitProgress(elapsed);
+        confirmPlayback();
+      }
+    }, 1000);
+
+    return () => {
+      if (watchIntervalRef.current !== null) {
+        window.clearInterval(watchIntervalRef.current);
+        watchIntervalRef.current = null;
+      }
+    };
+  }, [confirmPlayback, emitProgress, estimatedDurationSeconds, hasStartedWatching]);
 
   useEffect(() => {
     if (streams && streams.length > 0) {
@@ -175,18 +225,11 @@ export function AnimePlayer({ streams, title, onPlaybackConfirmed }: AnimePlayer
       <div className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-zinc-900/60 px-3 py-2 text-xs text-zinc-300">
         <span>
           {isPlaybackConfirmed
-            ? 'Progress tersimpan: episode ini sudah ditandai ditonton.'
-            : 'Watch badge akan aktif setelah kamu mulai menonton video.'}
+            ? 'Episode otomatis ditandai ditonton (>=80% durasi estimasi).'
+            : hasStartedWatching
+              ? `Progress terdeteksi: ${inferredPercent}% (${Math.floor(watchSeconds / 60)}m ${watchSeconds % 60}s).`
+              : 'Klik player untuk mulai nonton. Progress akan ditangkap otomatis.'}
         </span>
-        {!isPlaybackConfirmed && (
-          <button
-            type="button"
-            onClick={confirmPlayback}
-            className="rounded-md bg-green-600 px-2.5 py-1 font-semibold text-white hover:bg-green-500 transition-colors"
-          >
-            Saya sudah play
-          </button>
-        )}
       </div>
 
       {/* Controls below player - doesn't overlap iframe */}

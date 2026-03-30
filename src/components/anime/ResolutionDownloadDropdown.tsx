@@ -1,4 +1,5 @@
-import { useState } from 'react';import { ChevronDown } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Download } from '../../types/anime';
 
@@ -9,7 +10,32 @@ interface ResolutionDownloadDropdownProps {
 export function ResolutionDownloadDropdown({ downloads }: ResolutionDownloadDropdownProps) {
   const [expandedResolution, setExpandedResolution] = useState<string | null>(Object.keys(downloads)[0] || null);
 
-  const resolutions = Object.keys(downloads).sort((a, b) => {
+  const dedupedDownloads = useMemo(() => {
+    const entries = Object.entries(downloads).map(([resolution, links]) => {
+      const unique = new Map<string, Download>();
+
+      for (const link of links || []) {
+        const normalizedUrl = (link.url || '').trim();
+        if (!normalizedUrl) continue;
+        const provider = (link.provider || 'Unknown').trim();
+        const dedupKey = `${normalizedUrl.toLowerCase()}::${provider.toLowerCase()}::${resolution.toLowerCase()}`;
+
+        if (!unique.has(dedupKey)) {
+          unique.set(dedupKey, {
+            ...link,
+            provider,
+            url: normalizedUrl,
+          });
+        }
+      }
+
+      return [resolution, Array.from(unique.values())] as const;
+    });
+
+    return Object.fromEntries(entries) as Record<string, Download[]>;
+  }, [downloads]);
+
+  const resolutions = Object.keys(dedupedDownloads).sort((a, b) => {
     const orderMap: Record<string, number> = { '1080p': 0, '720p': 1, '480p': 2, '360p': 3, '240p': 4 };
     return (orderMap[a] ?? 999) - (orderMap[b] ?? 999);
   });
@@ -29,7 +55,7 @@ export function ResolutionDownloadDropdown({ downloads }: ResolutionDownloadDrop
             <span className="text-sm font-bold text-white">{resolution}</span>
             <div className="flex items-center gap-2">
               <span className="text-xs text-gray-500">
-                {downloads[resolution].length} provider{downloads[resolution].length !== 1 ? 's' : ''}
+                {dedupedDownloads[resolution].length} provider{dedupedDownloads[resolution].length !== 1 ? 's' : ''}
               </span>
               <ChevronDown className={cn('w-4 h-4 text-gray-400 transition-transform', expandedResolution === resolution && 'rotate-180')} />
             </div>
@@ -37,9 +63,9 @@ export function ResolutionDownloadDropdown({ downloads }: ResolutionDownloadDrop
 
           {expandedResolution === resolution && (
             <div className="border-t border-white/5 p-3 flex flex-wrap gap-2 bg-black/30">
-              {downloads[resolution].map((link, idx) => (
+              {dedupedDownloads[resolution].map((link) => (
                 <a
-                  key={`${resolution}-${idx}`}
+                  key={`${resolution}-${link.provider}-${link.url}`}
                   href={link.url}
                   target="_blank"
                   rel="noopener noreferrer"

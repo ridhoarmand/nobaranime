@@ -1,14 +1,19 @@
-import { createClient } from '@supabase/supabase-js';import Cookies from 'js-cookie';
+import { createClient } from '@supabase/supabase-js';
+import Cookies from 'js-cookie';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseStorageKey = import.meta.env.VITE_SUPABASE_STORAGE_KEY || 'nobar-shared-auth-token';
+
+const configuredCookieDomain = import.meta.env.VITE_SUPABASE_COOKIE_DOMAIN || '';
+const isHttps = typeof window !== 'undefined' ? window.location.protocol === 'https:' : true;
 
 // Konfigurasi Cookie lintas subdomain
 const cookieOptions = {
-  domain: '.idho.eu.org',
+  domain: configuredCookieDomain || undefined,
   path: '/',
   sameSite: 'Lax' as const,
-  secure: true, // Pastikan target web berjalan di HTTPS
+  secure: isHttps,
 };
 
 // Custom Storage Adapter yang memaksa Supabase menggunakan js-cookie
@@ -30,6 +35,7 @@ const cookieAuthStorage = {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
+    storageKey: supabaseStorageKey,
     storage: cookieAuthStorage,
     autoRefreshToken: true,
     persistSession: true,

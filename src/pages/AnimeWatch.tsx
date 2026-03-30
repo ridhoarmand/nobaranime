@@ -9,7 +9,7 @@ import { useWatchHistory } from '../hooks/useWatchHistory';
 
 export function AnimeWatch() {
   const { slug, episode } = useParams<{ slug: string; episode: string }>();
-  const { addWatched } = useWatchHistory();
+  const { updateWatchProgress } = useWatchHistory();
 
   const {
     data: response,
@@ -23,17 +23,37 @@ export function AnimeWatch() {
   });
 
   const handlePlaybackConfirmed = useCallback(() => {
-    if (!response?.data || !slug || !episode) return;
+    if (!response?.data || !slug) return;
 
     const data = response.data;
-    addWatched({
+    const estimatedMinutes = extractDurationMinutes(data.anime?.duration);
+
+    // Mark at 100% when playback is confirmed (will only update if reaching actual completion threshold later)
+    updateWatchProgress({
       animeSlug: slug,
       animeTitle: data.anime?.title || 'Unknown',
       animeThumb: data.anime?.thumb || '',
-      episodeNumber: data.episode_number,
-      episodeSlug: episode,
+      progressPercent: 99, // Near complete
+      watchedDurationSec: 0,
+      estimatedDurationSec: Math.round(estimatedMinutes * 60),
     });
-  }, [response, slug, episode, addWatched]);
+  }, [response, slug, updateWatchProgress]);
+
+  const handleWatchProgress = useCallback((payload: { elapsedSeconds: number; inferredPercent: number; completed: boolean }) => {
+    if (!response?.data || !slug) return;
+
+    const data = response.data;
+    const estimatedMinutes = extractDurationMinutes(data.anime?.duration);
+
+    updateWatchProgress({
+      animeSlug: slug,
+      animeTitle: data.anime?.title || 'Unknown',
+      animeThumb: data.anime?.thumb || '',
+      progressPercent: payload.inferredPercent,
+      watchedDurationSec: payload.elapsedSeconds,
+      estimatedDurationSec: Math.round(estimatedMinutes * 60),
+    });
+  }, [response, slug, updateWatchProgress]);
 
   if (isLoading) {
     return (
@@ -54,6 +74,7 @@ export function AnimeWatch() {
   const data = response.data;
   const animeInfo = data.anime;
   const downloads = data.downloads || {};
+  const estimatedDurationMinutes = extractDurationMinutes(animeInfo?.duration);
 
   return (
     <main className="bg-black min-h-screen text-white pt-4 pb-20 px-4 sm:px-6 lg:px-8">
@@ -74,7 +95,14 @@ export function AnimeWatch() {
           <div className="lg:col-span-2 space-y-6">
             <h1 className="text-xl md:text-2xl font-bold leading-tight">{data.title}</h1>
 
-            <AnimePlayer key={episode} streams={data.streams || []} title={data.title} onPlaybackConfirmed={handlePlaybackConfirmed} />
+            <AnimePlayer
+              key={episode}
+              streams={data.streams || []}
+              title={data.title}
+              estimatedDurationMinutes={estimatedDurationMinutes}
+              onPlaybackConfirmed={handlePlaybackConfirmed}
+              onWatchProgress={handleWatchProgress}
+            />
 
             <div className="flex items-center justify-between gap-4">
               {data.prev_episode ? (
@@ -134,4 +162,15 @@ export function AnimeWatch() {
       </div>
     </main>
   );
+}
+
+function extractDurationMinutes(rawDuration?: string | null): number {
+  if (!rawDuration) return 24;
+
+  const match = rawDuration.match(/(\d+(?:\.\d+)?)/);
+  if (!match) return 24;
+
+  const value = Number(match[1]);
+  if (Number.isNaN(value) || value <= 0) return 24;
+  return value;
 }

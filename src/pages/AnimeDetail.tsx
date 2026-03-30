@@ -3,9 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
 import { ResolutionDownloadDropdown } from '../components/anime/ResolutionDownloadDropdown';
 import { AnimeApi } from '../lib/api';
-import { Play, Calendar, Star, Info, Hash, Clock, MonitorPlay, Download, Tv, Check } from 'lucide-react';
+import { Play, Calendar, Star, Info, Hash, Clock, MonitorPlay, Download, Tv, Check, Circle, Heart, Bell } from 'lucide-react';
 import { ImageWithFallback } from '../components/ImageWithFallback';
 import { useWatchHistory } from '../hooks/useWatchHistory';
+import { useAnimePreferences } from '../hooks/useAnimePreferences';
 import { Batch, DownloadLink } from "../types/anime";
 
 
@@ -47,7 +48,8 @@ function BatchItem({ batch }: { batch: Batch }) {
 export function AnimeDetail() {
   const { slug } = useParams<{ slug: string }>();
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
-  const { isWatched, getWatchedEpisodesForAnime } = useWatchHistory();
+  const { isWatched, getWatchedEpisodesForAnime, getEpisodeProgress, getLatestWatchedForAnime, user: watchUser } = useWatchHistory();
+  const { isFollowed, isLiked, toggleFollow, toggleLike, user: prefUser, isLoaded } = useAnimePreferences();
   const {
     data: response,
     isLoading,
@@ -76,8 +78,11 @@ export function AnimeDetail() {
   }
 
   const data = response.data;
+  const followed = !!slug && isFollowed(slug);
+  const liked = !!slug && isLiked(slug);
   const watchedEpisodeNumbers = slug ? getWatchedEpisodesForAnime(slug) : [];
   const latestWatchedEpisode = watchedEpisodeNumbers.length > 0 ? Math.max(...watchedEpisodeNumbers) : 0;
+  const latestProgressEntry = slug ? getLatestWatchedForAnime(slug) : null;
 
   const latestEpisodeEntry = [...(data.episodes || [])].reduce((latest, current) => {
     const latestNum = Number(latest?.episode_number || 0);
@@ -87,6 +92,7 @@ export function AnimeDetail() {
 
   const latestAvailableEpisodeNumber = Number(latestEpisodeEntry?.episode_number || 0);
   const hasNewEpisodeSuggestion = latestAvailableEpisodeNumber > 0 && latestAvailableEpisodeNumber > latestWatchedEpisode;
+  const shouldResumeCurrentEpisode = !!latestProgressEntry && !latestProgressEntry.completed;
 
   return (
     <main className="bg-black min-h-screen text-white pb-20">
@@ -120,6 +126,30 @@ export function AnimeDetail() {
             <div>
               <h1 className="text-2xl sm:text-3xl md:text-5xl font-black leading-tight mb-1 md:mb-2">{data.title}</h1>
               {data.japanese_title && <h2 className="text-sm md:text-xl text-gray-400 font-medium">{data.japanese_title}</h2>}
+
+              <div className="mt-3 md:mt-4 flex flex-wrap gap-2 justify-center md:justify-start">
+                {(watchUser || prefUser) && isLoaded && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => slug && toggleFollow({ slug, title: data.title, thumb: data.thumb })}
+                      className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs md:text-sm font-semibold transition-colors ${followed ? 'border-emerald-500/60 bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/25' : 'border-white/15 bg-zinc-900/80 text-zinc-200 hover:bg-zinc-800'}`}
+                    >
+                      <Bell className="w-3.5 h-3.5" />
+                      {followed ? 'Mengikuti' : 'Ikuti'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => slug && toggleLike({ slug, title: data.title, thumb: data.thumb })}
+                      className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs md:text-sm font-semibold transition-colors ${liked ? 'border-rose-500/60 bg-rose-500/20 text-rose-200 hover:bg-rose-500/25' : 'border-white/15 bg-zinc-900/80 text-zinc-200 hover:bg-zinc-800'}`}
+                    >
+                      <Heart className={`w-3.5 h-3.5 ${liked ? 'fill-current' : ''}`} />
+                      {liked ? 'Disukai' : 'Sukai'}
+                    </button>
+                  </>
+                )}
+              </div>
 
               <div className="flex flex-wrap justify-center md:justify-start gap-1.5 md:gap-2 mt-3 md:mt-4">
                 {data.genres?.map((g) => (
@@ -199,7 +229,20 @@ export function AnimeDetail() {
                 <span className="text-xs md:text-sm text-gray-400 text-left">{data.episodes?.length || 0} Episodes Available</span>
               </div>
 
-              {hasNewEpisodeSuggestion && latestEpisodeEntry?.endpoint && (
+              {shouldResumeCurrentEpisode && latestProgressEntry && (
+                <Link
+                  to={`/anime/${slug}/${latestProgressEntry.episodeSlug}`}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-amber-100 hover:bg-amber-500/20 transition-colors"
+                >
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-wider text-amber-200/80">Lanjut nonton</p>
+                    <p className="text-sm font-semibold truncate">Lanjutkan Ep {latestProgressEntry.episodeNumber} ({Math.round(latestProgressEntry.progressPercent)}%)</p>
+                  </div>
+                  <Play className="w-4 h-4 shrink-0 fill-current" />
+                </Link>
+              )}
+
+              {!shouldResumeCurrentEpisode && hasNewEpisodeSuggestion && latestEpisodeEntry?.endpoint && (
                 <Link
                   to={`/anime/${slug}/${latestEpisodeEntry.endpoint}`}
                   className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-emerald-200 hover:bg-emerald-500/20 transition-colors"
@@ -216,15 +259,23 @@ export function AnimeDetail() {
                 {data.episodes?.map((ep) => {
                   const epNumber = ep.title.match(/Episode\s+(\d+)/i)?.[1] || ep.episode_number;
                   const watched = isWatched(ep.endpoint);
+                  const progressEntry = getEpisodeProgress(ep.endpoint);
+                  const inProgress = !!progressEntry && !progressEntry.completed && progressEntry.progressPercent > 0;
                   return (
                     <Link
                       key={ep.id}
                       to={`/anime/${slug}/${ep.endpoint}`}
-                      className={`group relative bg-zinc-900 hover:bg-zinc-800 rounded-lg p-2 md:p-3 border transition-all flex flex-col justify-between h-full text-center md:text-left ${watched ? 'border-green-500/50 hover:border-green-500/80 bg-green-900/10' : 'border-white/5 hover:border-red-500/50'}`}
+                      className={`group relative bg-zinc-900 hover:bg-zinc-800 rounded-lg p-2 md:p-3 border transition-all flex flex-col justify-between h-full text-center md:text-left ${watched ? 'border-green-500/50 hover:border-green-500/80 bg-green-900/10' : inProgress ? 'border-amber-500/50 hover:border-amber-400/80 bg-amber-900/10' : 'border-white/5 hover:border-red-500/50'}`}
                     >
                       {watched && (
                         <div className="absolute top-1 right-1 md:top-2 md:right-2">
                           <Check className="w-3 h-3 md:w-4 md:h-4 text-green-500" />
+                        </div>
+                      )}
+                      {!watched && inProgress && (
+                        <div className="absolute top-1 right-1 md:top-2 md:right-2 flex items-center gap-1">
+                          <Circle className="w-2.5 h-2.5 md:w-3 md:h-3 text-amber-400 fill-current" />
+                          <span className="text-[8px] md:text-[9px] text-amber-300 font-semibold">{Math.round(progressEntry.progressPercent)}%</span>
                         </div>
                       )}
                       <div className="flex flex-col md:flex-row md:justify-between items-center md:items-start mb-1 md:mb-2 w-full gap-1">
@@ -233,11 +284,13 @@ export function AnimeDetail() {
                           <Play className="w-3.5 h-3.5 text-red-500 fill-current" />
                         </div>
                       </div>
-                      <div className={`text-base sm:text-lg md:text-2xl font-black transition-colors mb-0.5 leading-none ${watched ? 'text-green-500 group-hover:text-green-400' : 'text-white group-hover:text-red-500'}`}>
-                        <span className={`md:hidden text-[10px] font-normal mr-1 ${watched ? 'text-green-500/70' : 'text-gray-500'}`}>Ep</span>
+                      <div className={`text-base sm:text-lg md:text-2xl font-black transition-colors mb-0.5 leading-none ${watched ? 'text-green-500 group-hover:text-green-400' : inProgress ? 'text-amber-300 group-hover:text-amber-200' : 'text-white group-hover:text-red-500'}`}>
+                        <span className={`md:hidden text-[10px] font-normal mr-1 ${watched ? 'text-green-500/70' : inProgress ? 'text-amber-300/70' : 'text-gray-500'}`}>Ep</span>
                         {epNumber}
                       </div>
-                      <div className={`mt-1 md:mt-2 text-[8px] md:text-[10px] truncate w-full ${watched ? 'text-green-500/50' : 'text-gray-400'}`}>{ep.date?.split(' ')[0]}</div>
+                      <div className={`mt-1 md:mt-2 text-[8px] md:text-[10px] truncate w-full ${watched ? 'text-green-500/50' : inProgress ? 'text-amber-300/70' : 'text-gray-400'}`}>
+                        {ep.date?.split(' ')[0]}
+                      </div>
                     </Link>
                   );
                 })}

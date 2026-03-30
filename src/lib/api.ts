@@ -33,6 +33,10 @@ export class AnimeApi {
     return this.fetch<AnimeResponse<Anime[]>>(`/ongoing?page=${page}`);
   }
 
+  static async getLatestEpisodes(page = 1) {
+    return this.fetch<AnimeResponse<Anime[]>>(`/latest-episodes?page=${page}`);
+  }
+
   static async getCompleted(page = 1) {
     return this.fetch<AnimeResponse<Anime[]>>(`/completed?page=${page}`);
   }
