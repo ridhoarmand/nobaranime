@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import Cookies from 'js-cookie';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
 const supabaseStorageKey = import.meta.env.VITE_SUPABASE_STORAGE_KEY || 'nobar-shared-auth-token';
 
 const configuredCookieDomain = import.meta.env.VITE_SUPABASE_COOKIE_DOMAIN || '';
@@ -33,7 +33,7 @@ const cookieAuthStorage = {
   },
 };
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
   auth: {
     storageKey: supabaseStorageKey,
     storage: cookieAuthStorage,
