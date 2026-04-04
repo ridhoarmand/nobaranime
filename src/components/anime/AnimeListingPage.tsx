@@ -109,20 +109,38 @@ export function AnimeListingPage({ title, initialData, fetchMore, showReleaseDay
             const idxB = order.indexOf(b);
             return (idxA !== -1 ? idxA : 999) - (idxB !== -1 ? idxB : 999);
           })
-          .map(([groupName, animes]) => (
-            <div key={groupName}>
-              <h2 className="text-xl font-bold text-gray-300 mb-4 border-b border-white/10 pb-2">{groupName}</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-4">
-                {animes.map((anime, index) => (
-                  <AnimeCard key={`${anime.id}-${index}`} anime={anime} showReleaseDayBadge={showReleaseDayBadge} directToLatestEpisode={directToLatestEpisode} />
-                ))}
+          .map(([groupName, animes]) => {
+            const sortedAnimes = [...animes].sort((a, b) => {
+              const dateA = a.last_episode_date || a.latest_episode?.date;
+              const dateB = b.last_episode_date || b.latest_episode?.date;
+              if (!dateA && !dateB) return 0;
+              if (!dateA) return 1;
+              if (!dateB) return -1;
+              return new Date(dateB).getTime() - new Date(dateA).getTime();
+            });
+
+            return (
+              <div key={groupName}>
+                <h2 className="text-xl font-bold text-gray-300 mb-4 border-b border-white/10 pb-2">{groupName}</h2>
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-4">
+                  {sortedAnimes.map((anime, index) => (
+                    <AnimeCard key={`${anime.id}-${index}`} anime={anime} showReleaseDayBadge={showReleaseDayBadge} directToLatestEpisode={directToLatestEpisode} />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-4">
-          {data.map((anime, index) => (
+          {[...data].sort((a, b) => {
+            const dateA = a.last_episode_date || a.latest_episode?.date;
+            const dateB = b.last_episode_date || b.latest_episode?.date;
+            if (!dateA && !dateB) return 0;
+            if (!dateA) return 1;
+            if (!dateB) return -1;
+            return new Date(dateB).getTime() - new Date(dateA).getTime();
+          }).map((anime, index) => (
             <AnimeCard key={`${anime.id}-${index}`} anime={anime} showReleaseDayBadge={showReleaseDayBadge} directToLatestEpisode={directToLatestEpisode} />
           ))}
         </div>

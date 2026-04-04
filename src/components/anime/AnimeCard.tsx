@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom';import { Anime } from '../../types/anime';
+import { Link } from 'react-router-dom';
+import { Anime } from '../../types/anime';
 import { PlayCircle, CheckCircle } from 'lucide-react';
 import { ImageWithFallback } from '../ImageWithFallback';
 import { useWatchHistory } from '../../hooks/useWatchHistory';
@@ -10,6 +11,22 @@ const getDayName = (dateString?: string | null) => {
     const date = new Date(safeDateStr);
     if (isNaN(date.getTime())) return safeDateStr; // Kembalikan string asli jika format salah
     return new Intl.DateTimeFormat('id-ID', { weekday: 'long' }).format(date);
+  } catch {
+    return dateString;
+  }
+};
+
+const getIndonesianDate = (dateString?: string | null) => {
+  if (!dateString) return '';
+  try {
+    // split to get only the date part incase there's time, or construct Date object directly
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString.split(' ')[0];
+    return new Intl.DateTimeFormat('id-ID', { 
+      day: 'numeric', 
+      month: 'long', 
+      year: 'numeric' 
+    }).format(date);
   } catch {
     return dateString;
   }
@@ -99,7 +116,7 @@ export function AnimeCard({ anime, showReleaseDayBadge = false, directToLatestEp
           {anime.type && (anime.total_episodes || anime.last_episode_date || anime.latest_episode?.date) && <span>•</span>}
           {(anime.last_episode_date || anime.latest_episode?.date) ? (
              <span className="text-red-400 font-medium">
-               {anime.last_episode_date ? anime.last_episode_date.split(' ')[0] : anime.latest_episode?.date}
+               {getIndonesianDate(anime.last_episode_date || anime.latest_episode?.date)}
              </span>
           ) : anime.total_episodes ? <span>{anime.total_episodes} Eps</span> : null}
         </div>

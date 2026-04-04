@@ -131,7 +131,14 @@ export function Home() {
             </Link>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-4">
-            {ongoing?.data?.slice(0, 14).map((item) => (
+            {[...(ongoing?.data || [])].sort((a, b) => {
+              const dateA = a.last_episode_date || a.latest_episode?.date;
+              const dateB = b.last_episode_date || b.latest_episode?.date;
+              if (!dateA && !dateB) return 0;
+              if (!dateA) return 1;
+              if (!dateB) return -1;
+              return new Date(dateB).getTime() - new Date(dateA).getTime();
+            }).slice(0, 14).map((item) => (
               <AnimeCard key={item.id} anime={item} showReleaseDayBadge directToLatestEpisode />
             ))}
           </div>
