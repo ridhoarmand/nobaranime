@@ -23,6 +23,7 @@ export function AnimePlayer({ streams, title, estimatedDurationMinutes, onPlayba
   const [currentStream, setCurrentStream] = useState<Stream | null>(null);
   const [sandboxMode, setSandboxMode] = useState<'auto' | 'strict' | 'permissive'>('auto');
   const [showSettings, setShowSettings] = useState(false);
+  const [showLandscapeHint, setShowLandscapeHint] = useState(false);
   const [hasStartedWatching, setHasStartedWatching] = useState(false);
   const [watchSeconds, setWatchSeconds] = useState(0);
   const [isPlaybackConfirmed, setIsPlaybackConfirmed] = useState(false);
@@ -106,6 +107,50 @@ export function AnimePlayer({ streams, title, estimatedDurationMinutes, onPlayba
       setCurrentStream(defaultStream);
     }
   }, [streams]);
+
+  useEffect(() => {
+    const unlockOrientation = () => {
+      if (typeof screen === 'undefined' || !('orientation' in screen) || !screen.orientation) {
+        return;
+      }
+
+      if (typeof screen.orientation.unlock === 'function') {
+        screen.orientation.unlock();
+      }
+    };
+
+    const handleFullscreenChange = async () => {
+      const inFullscreen = Boolean(document.fullscreenElement);
+      if (!inFullscreen) {
+        setShowLandscapeHint(false);
+        unlockOrientation();
+        return;
+      }
+
+      if (typeof screen === 'undefined' || !('orientation' in screen) || !screen.orientation) {
+        setShowLandscapeHint(true);
+        return;
+      }
+
+      if (typeof screen.orientation.lock !== 'function') {
+        setShowLandscapeHint(true);
+        return;
+      }
+
+      try {
+        await screen.orientation.lock('landscape');
+        setShowLandscapeHint(false);
+      } catch {
+        setShowLandscapeHint(true);
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      unlockOrientation();
+    };
+  }, []);
 
   const sandboxValue = useMemo(() => {
     if (!currentStream?.url) return 'allow-scripts allow-same-origin';
@@ -201,7 +246,7 @@ export function AnimePlayer({ streams, title, estimatedDurationMinutes, onPlayba
                 title={title}
                 className="w-full h-full border-0 absolute inset-0"
                 allowFullScreen
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                 sandbox={sandboxValue || ''}
               />
             ) : (
@@ -211,7 +256,7 @@ export function AnimePlayer({ streams, title, estimatedDurationMinutes, onPlayba
                 title={title}
                 className="w-full h-full border-0 absolute inset-0"
                 allowFullScreen
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
               />
             )}
           </>
@@ -231,6 +276,12 @@ export function AnimePlayer({ streams, title, estimatedDurationMinutes, onPlayba
               : 'Klik player untuk mulai nonton. Progress akan ditangkap otomatis.'}
         </span>
       </div>
+
+      {showLandscapeHint && (
+        <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-300">
+          Fullscreen aktif, tapi browser tidak bisa mengunci orientasi otomatis. Aktifkan auto-rotate untuk landscape.
+        </div>
+      )}
 
       {/* Controls below player - doesn't overlap iframe */}
       {currentStream && (

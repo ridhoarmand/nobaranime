@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import type { RealtimeChannel } from '@supabase/supabase-js';
+import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 export interface WatchHistoryItem {
   animeSlug: string;
@@ -177,20 +177,17 @@ export function useWatchHistory() {
       if (currentUser) {
         realtimeChannelRef.current = supabase
           .channel(`${WATCH_HISTORY_TABLE}:user_id=eq.${currentUser.id}`)
-          .on('postgres_changes' as any, {
+          .on(
+            'postgres_changes',
+            {
               event: '*',
               schema: 'public',
               table: WATCH_HISTORY_TABLE,
               filter: `user_id=eq.${currentUser.id}`,
             },
-            (payload: any) => {
-              const typedPayload = payload as {
-                eventType: string;
-                new: SupabaseWatchHistory;
-                old: SupabaseWatchHistory;
-              };
-              if (typedPayload.eventType === 'INSERT' || typedPayload.eventType === 'UPDATE') {
-                const newRecord = typedPayload.new as SupabaseWatchHistory;
+            (payload: RealtimePostgresChangesPayload<SupabaseWatchHistory>) => {
+              if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+                const newRecord = payload.new as SupabaseWatchHistory;
                 setSupabaseHistory((prev) => {
                   const existing = prev.findIndex((h) => h.anime_slug === newRecord.anime_slug);
                   if (existing >= 0) {
@@ -200,8 +197,8 @@ export function useWatchHistory() {
                   }
                   return [newRecord, ...prev].sort((a, b) => new Date(b.last_seen_at).getTime() - new Date(a.last_seen_at).getTime());
                 });
-              } else if (typedPayload.eventType === 'DELETE') {
-                const deletedRecord = typedPayload.old as SupabaseWatchHistory;
+              } else if (payload.eventType === 'DELETE') {
+                const deletedRecord = payload.old as SupabaseWatchHistory;
                 setSupabaseHistory((prev) => prev.filter((h) => h.anime_slug !== deletedRecord.anime_slug));
               }
             }
@@ -217,7 +214,7 @@ export function useWatchHistory() {
         supabase.removeChannel(realtimeChannelRef.current);
       }
     };
-  }, [supabase]);
+  }, []);
 
   // Save history to localStorage whenever it changes (for non-logged-in users)
   useEffect(() => {
@@ -286,7 +283,6 @@ export function useWatchHistory() {
         console.error('Error updating watch progress:', error);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [user]
   );
 

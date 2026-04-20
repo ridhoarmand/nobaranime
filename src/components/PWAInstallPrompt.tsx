@@ -19,7 +19,7 @@ function isMobileDevice(): boolean {
 }
 
 export function PWAInstallPrompt() {
-  const { isInstallable, isInstalled, install } = usePWAInstall();
+  const { isInstallable, isInstalled, install, dismissPrompt } = usePWAInstall();
   const [isMobile] = useState(() => isMobileDevice());
 
   // Only show on mobile devices
@@ -38,9 +38,10 @@ export function PWAInstallPrompt() {
         </div>
         <button
           onClick={() => {
-            // Dismiss logic can be added here if needed
+            dismissPrompt(24 * 7);
           }}
           className="text-zinc-500 hover:text-zinc-300 transition-colors"
+          aria-label="Close install prompt"
         >
           <X className="w-4 h-4" />
         </button>
@@ -54,7 +55,7 @@ export function PWAInstallPrompt() {
         </button>
         <button
           onClick={() => {
-            // Optionally hide the prompt
+            dismissPrompt(24);
           }}
           className="px-4 py-2 text-zinc-400 hover:text-white transition-colors"
         >

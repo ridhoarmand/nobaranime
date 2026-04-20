@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import type { RealtimeChannel } from '@supabase/supabase-js';
+import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 export interface AnimePreferenceItem {
   slug: string;
@@ -147,20 +147,17 @@ export function useAnimePreferences() {
       if (currentUser) {
         realtimeChannelRef.current = supabase
           .channel(`user_anime_preferences:user_id=eq.${currentUser.id}`)
-          .on('postgres_changes' as any, {
+          .on(
+            'postgres_changes',
+            {
               event: '*',
               schema: 'public',
               table: 'user_anime_preferences',
               filter: `user_id=eq.${currentUser.id}`,
             },
-            (payload: any) => {
-              const typedPayload = payload as {
-                eventType: string;
-                new: SupabaseAnimePreference;
-                old: SupabaseAnimePreference;
-              };
-              if (typedPayload.eventType === 'INSERT' || typedPayload.eventType === 'UPDATE') {
-                const newRecord = typedPayload.new as SupabaseAnimePreference;
+            (payload: RealtimePostgresChangesPayload<SupabaseAnimePreference>) => {
+              if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+                const newRecord = payload.new as SupabaseAnimePreference;
                 setSupabasePreferences((prev) => {
                   const existing = prev.findIndex((p) => p.anime_slug === newRecord.anime_slug);
                   if (existing >= 0) {
@@ -187,7 +184,7 @@ export function useAnimePreferences() {
         supabase.removeChannel(realtimeChannelRef.current);
       }
     };
-  }, [supabase]);
+  }, []);
 
   // Save to localStorage for non-logged-in users
   useEffect(() => {
@@ -261,7 +258,6 @@ export function useAnimePreferences() {
         console.error('Error toggling follow:', error);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [user, supabasePreferences]
   );
 
@@ -307,7 +303,6 @@ export function useAnimePreferences() {
         console.error('Error toggling like:', error);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [user, supabasePreferences]
   );
 
