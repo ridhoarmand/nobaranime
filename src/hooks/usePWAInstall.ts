@@ -6,40 +6,70 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 const PWA_INSTALL_DISMISS_UNTIL_KEY = 'nobaranime_pwa_install_dismiss_until';
+const PWA_INSTALL_PERMANENT_KEY = 'nobaranime_pwa_install_permanent_dismiss';
+
+// Check localStorage for initial dismiss state (safe to do in function body)
+function getInitialDismissState(): { isDismissed: boolean } {
+  if (typeof window === 'undefined') return { isDismissed: false };
+
+  // Check permanent dismiss
+  if (window.localStorage.getItem(PWA_INSTALL_PERMANENT_KEY)) {
+    return { isDismissed: true };
+  }
+
+  // Check temporary dismiss
+  const rawDismissUntil = window.localStorage.getItem(PWA_INSTALL_DISMISS_UNTIL_KEY);
+  if (rawDismissUntil) {
+    const dismissUntil = Number(rawDismissUntil);
+    if (!Number.isNaN(dismissUntil) && dismissUntil > Date.now()) {
+      return { isDismissed: true };
+    }
+    window.localStorage.removeItem(PWA_INSTALL_DISMISS_UNTIL_KEY);
+  }
+
+  return { isDismissed: false };
+}
 
 export function usePWAInstall() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isInstallable, setIsInstallable] = useState(false);
+  const initialState = getInitialDismissState();
+  const [isInstallable, setIsInstallable] = useState(!initialState.isDismissed);
   const [isInstalled, setIsInstalled] = useState(false);
   const isInstalledRef = useRef(false);
-  const isPromptDismissedRef = useRef(false);
+  const isPromptDismissedRef = useRef(initialState.isDismissed);
 
   const clearDismissState = () => {
     if (typeof window === 'undefined') return;
     isPromptDismissedRef.current = false;
     window.localStorage.removeItem(PWA_INSTALL_DISMISS_UNTIL_KEY);
+    window.localStorage.removeItem(PWA_INSTALL_PERMANENT_KEY);
   };
 
-  const dismissPrompt = (dismissForHours: number) => {
+  const dismissPrompt = (dismissForHours: number, permanent = false) => {
     if (typeof window === 'undefined') return;
+    if (permanent) {
+      isPromptDismissedRef.current = true;
+      window.localStorage.setItem(PWA_INSTALL_PERMANENT_KEY, '1');
+      window.localStorage.removeItem(PWA_INSTALL_DISMISS_UNTIL_KEY);
+      // Force hide - set immediately in component
+      window.requestAnimationFrame(() => {
+        setIsInstallable(false);
+      });
+      return;
+    }
     const dismissUntil = Date.now() + dismissForHours * 60 * 60 * 1000;
     isPromptDismissedRef.current = true;
-    setIsInstallable(false);
     window.localStorage.setItem(PWA_INSTALL_DISMISS_UNTIL_KEY, String(dismissUntil));
+    window.requestAnimationFrame(() => {
+      setIsInstallable(false);
+    });
   };
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const rawDismissUntil = window.localStorage.getItem(PWA_INSTALL_DISMISS_UNTIL_KEY);
-    if (rawDismissUntil) {
-      const dismissUntil = Number(rawDismissUntil);
-      if (!Number.isNaN(dismissUntil) && dismissUntil > Date.now()) {
-        isPromptDismissedRef.current = true;
-      } else {
-        window.localStorage.removeItem(PWA_INSTALL_DISMISS_UNTIL_KEY);
-      }
-    }
+    // Initial state already handled by getInitialDismissState()
+    // Only need to listen for future events
 
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();

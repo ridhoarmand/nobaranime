@@ -36,9 +36,9 @@ export function PWAInstallPrompt() {
             Install our app for a better experience and easy access!
           </p>
         </div>
-        <button
+<button
           onClick={() => {
-            dismissPrompt(24 * 7);
+            dismissPrompt(24 * 7, true); // Close permanently (but still keep 1 week logic for X button)
           }}
           className="text-zinc-500 hover:text-zinc-300 transition-colors"
           aria-label="Close install prompt"
@@ -51,15 +51,15 @@ export function PWAInstallPrompt() {
           onClick={install}
           className="flex-1 bg-white text-black font-medium py-2 px-4 rounded-md hover:bg-zinc-200 transition-colors"
         >
-          Install Now
+          Install
         </button>
         <button
           onClick={() => {
-            dismissPrompt(24);
+            dismissPrompt(24 * 7, true); // Close for 1 week (permanent dismiss)
           }}
           className="px-4 py-2 text-zinc-400 hover:text-white transition-colors"
         >
-          Later
+          Nanti
         </button>
       </div>
     </div>

@@ -27,6 +27,8 @@ export function AnimePlayer({ streams, title, estimatedDurationMinutes, onPlayba
   const [hasStartedWatching, setHasStartedWatching] = useState(false);
   const [watchSeconds, setWatchSeconds] = useState(0);
   const [isPlaybackConfirmed, setIsPlaybackConfirmed] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false); // Track fullscreen state
+  const playerRef = useRef<HTMLDivElement>(null);
   const watchSecondsRef = useRef(0);
   const emitIntervalRef = useRef(0);
   const watchIntervalRef = useRef<number | null>(null);
@@ -56,11 +58,56 @@ export function AnimePlayer({ streams, title, estimatedDurationMinutes, onPlayba
     onPlaybackConfirmed?.();
   }, [onPlaybackConfirmed]);
 
-  const handlePlayerInteraction = () => {
+  const handlePlayerInteraction = useCallback(() => {
     if (hasStartedWatching) return;
     setHasStartedWatching(true);
     emitProgress(0);
-  };
+  }, [hasStartedWatching, emitProgress]);
+
+  // Unlock orientation
+  const unlockOrientation = useCallback(() => {
+    try {
+      if (typeof screen !== 'undefined' && (screen as unknown as { orientation?: { unlock?: () => void } }).orientation) {
+        (screen as unknown as { orientation?: { unlock?: () => void } }).orientation?.unlock?.();
+      }
+    } catch {
+      // Ignore errors - orientation API not supported
+    }
+  }, []);
+
+  // Lock orientation to landscape - works on mobile
+  const lockOrientation = useCallback(async () => {
+    try {
+      if (typeof screen !== 'undefined' && (screen as unknown as { orientation?: { lock?: (type: string) => Promise<void> } }).orientation) {
+        await (screen as unknown as { orientation?: { lock?: (type: string) => Promise<void> } }).orientation?.lock?.('landscape');
+      }
+    } catch {
+      // Orientation lock not supported or failed - show hint
+      setShowLandscapeHint(true);
+    }
+  }, []);
+
+  // Toggle fullscreen - exposed for double-click on player
+  const handleFullscreen = useCallback(async () => {
+    try {
+      // Try HTML5 fullscreen first (works in PWA)
+      if (playerRef.current) {
+        if (document.fullscreenElement) {
+          await document.exitFullscreen();
+          setIsFullscreen(false);
+          unlockOrientation();
+          return;
+        }
+        await playerRef.current.requestFullscreen();
+        setIsFullscreen(true);
+        await lockOrientation();
+      }
+    } catch {
+      // Fallback: just lock orientation without fullscreen (PWA mode)
+      setIsFullscreen(false);
+      await lockOrientation();
+    }
+  }, [unlockOrientation, lockOrientation]);
 
   useEffect(() => {
     return () => {
@@ -109,40 +156,15 @@ export function AnimePlayer({ streams, title, estimatedDurationMinutes, onPlayba
   }, [streams]);
 
   useEffect(() => {
-    const unlockOrientation = () => {
-      if (typeof screen === 'undefined' || !('orientation' in screen) || !screen.orientation) {
-        return;
-      }
-
-      if (typeof screen.orientation.unlock === 'function') {
-        screen.orientation.unlock();
-      }
-    };
-
     const handleFullscreenChange = async () => {
       const inFullscreen = Boolean(document.fullscreenElement);
+      setIsFullscreen(inFullscreen);
       if (!inFullscreen) {
         setShowLandscapeHint(false);
         unlockOrientation();
         return;
       }
-
-      if (typeof screen === 'undefined' || !('orientation' in screen) || !screen.orientation) {
-        setShowLandscapeHint(true);
-        return;
-      }
-
-      if (typeof screen.orientation.lock !== 'function') {
-        setShowLandscapeHint(true);
-        return;
-      }
-
-      try {
-        await screen.orientation.lock('landscape');
-        setShowLandscapeHint(false);
-      } catch {
-        setShowLandscapeHint(true);
-      }
+      await lockOrientation();
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
@@ -150,7 +172,7 @@ export function AnimePlayer({ streams, title, estimatedDurationMinutes, onPlayba
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       unlockOrientation();
     };
-  }, []);
+  }, [unlockOrientation, lockOrientation]);
 
   const sandboxValue = useMemo(() => {
     if (!currentStream?.url) return 'allow-scripts allow-same-origin';
@@ -236,7 +258,7 @@ export function AnimePlayer({ streams, title, estimatedDurationMinutes, onPlayba
 
   return (
     <div className="space-y-4">
-      <div className="relative aspect-video w-full bg-black rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 group" onClick={handlePlayerInteraction}>
+      <div className="relative aspect-video w-full bg-black rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 group" onClick={handlePlayerInteraction} ref={playerRef} onDoubleClick={handleFullscreen}>
         {currentStream ? (
           <>
             {needsSandbox ? (
@@ -275,6 +297,9 @@ export function AnimePlayer({ streams, title, estimatedDurationMinutes, onPlayba
               ? `Progress terdeteksi: ${inferredPercent}% (${Math.floor(watchSeconds / 60)}m ${watchSeconds % 60}s).`
               : 'Klik player untuk mulai nonton. Progress akan ditangkap otomatis.'}
         </span>
+        {isFullscreen && (
+          <span className="text-green-400">Fullscreen</span>
+        )}
       </div>
 
       {showLandscapeHint && (
