@@ -48,7 +48,7 @@ function BatchItem({ batch }: { batch: Batch }) {
 export function AnimeDetail() {
   const { slug } = useParams<{ slug: string }>();
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
-  const { isWatched, getWatchedEpisodesForAnime, getEpisodeProgress, getLatestWatchedForAnime, user: watchUser } = useWatchHistory();
+  const { getWatchedEpisodesForAnime, getEpisodeProgress, getLatestWatchedForAnime, user: watchUser } = useWatchHistory();
   const { isFollowed, isLiked, toggleFollow, toggleLike, user: prefUser, isLoaded } = useAnimePreferences();
   const {
     data: response,
@@ -258,8 +258,10 @@ export function AnimeDetail() {
               <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
                 {data.episodes?.map((ep) => {
                   const epNumber = ep.title.match(/Episode\s+(\d+)/i)?.[1] || ep.episode_number;
-                  const watched = isWatched(ep.endpoint);
-                  const progressEntry = getEpisodeProgress(ep.endpoint);
+                  const episodeNum = Number(epNumber);
+                  const allWatchedEps = slug ? getWatchedEpisodesForAnime(slug) : [];
+                  const watched = allWatchedEps.includes(episodeNum);
+                  const progressEntry = slug ? getEpisodeProgress(slug) : null;
                   const inProgress = !!progressEntry && !progressEntry.completed && progressEntry.progressPercent > 0;
                   return (
                     <Link

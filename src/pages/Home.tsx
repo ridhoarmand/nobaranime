@@ -12,8 +12,8 @@ export function Home() {
   const { followed, user: prefUser, isLoaded } = useAnimePreferences();
 
   const { data: ongoing, isLoading: ongoingLoading } = useQuery({
-    queryKey: ['ongoing', 1],
-    queryFn: () => AnimeApi.getOngoing(1),
+    queryKey: ['latest-episodes', 1],
+    queryFn: () => AnimeApi.getLatestEpisodes(1),
     gcTime: 0,
   });
 
@@ -23,18 +23,12 @@ export function Home() {
     gcTime: 0,
   });
 
-  const { data: latestEpisodes } = useQuery({
-    queryKey: ['latest-episodes', 1],
-    queryFn: () => AnimeApi.getLatestEpisodes(1),
-    gcTime: 0,
-  });
-
   const continueWatchingList = history
     .filter((item) => !item.completed && item.progressPercent > 0)
     .slice(0, 10);
 
   const followedSlugSet = new Set(followed.map((item) => item.slug));
-  const followedLatestReleases = (latestEpisodes?.data || [])
+  const followedLatestReleases = (ongoing?.data || [])
     .filter((anime) => followedSlugSet.has(anime.endpoint) && !!anime.last_episode_slug)
     .slice(0, 10);
 
