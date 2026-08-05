@@ -308,6 +308,10 @@ export function AnimePlayer({ streams, title, estimatedDurationMinutes, onPlayba
         </div>
       )}
 
+      <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs text-blue-300 flex items-center justify-between">
+        <span>Tips: Jika video error/blank, gunakan tombol pilihan <b>Server / Quality</b> di sebelah kanan untuk ganti mirror.</span>
+      </div>
+
       {/* Controls below player - doesn't overlap iframe */}
       {currentStream && (
         <div className="flex items-center justify-between gap-2">

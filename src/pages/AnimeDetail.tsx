@@ -1,15 +1,13 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
 import { ResolutionDownloadDropdown } from '../components/anime/ResolutionDownloadDropdown';
 import { AnimeApi } from '../lib/api';
-import { Play, Calendar, Star, Info, Hash, Clock, MonitorPlay, Download, Tv, Check, Circle, Heart, Bell } from 'lucide-react';
+import { Play, Calendar, Star, Info, Hash, Clock, MonitorPlay, Download, Tv, Check, Circle, Heart, Bell, RefreshCw, Search as SearchIcon, ArrowUpDown } from 'lucide-react';
 import { ImageWithFallback } from '../components/ImageWithFallback';
 import { useWatchHistory } from '../hooks/useWatchHistory';
 import { useAnimePreferences } from '../hooks/useAnimePreferences';
 import { Batch, DownloadLink } from "../types/anime";
-
-
 
 function BatchItem({ batch }: { batch: Batch }) {
   const { data: batchDetail, isLoading } = useQuery({
@@ -29,10 +27,8 @@ function BatchItem({ batch }: { batch: Batch }) {
         ) : batchDetail?.data?.download_links && Object.keys(batchDetail.data.download_links).length > 0 ? (
           <ResolutionDownloadDropdown
             downloads={Object.fromEntries(
-              
               Object.entries(batchDetail.data.download_links).map(([res, links]) => [
                 res,
-                
                 links.map((link: DownloadLink) => ({ provider: link.title || 'Unknown', format: res, url: link.url })),
               ])
             )}
@@ -47,7 +43,13 @@ function BatchItem({ batch }: { batch: Batch }) {
 
 export function AnimeDetail() {
   const { slug } = useParams<{ slug: string }>();
+  const queryClient = useQueryClient();
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncFeedback, setSyncFeedback] = useState('');
+  const [episodeSearchQuery, setEpisodeSearchQuery] = useState('');
+  const [episodeSortOrder, setEpisodeSortOrder] = useState<'asc' | 'desc'>('asc');
+
   const { getWatchedEpisodesForAnime, getEpisodeProgress, getLatestWatchedForAnime, user: watchUser } = useWatchHistory();
   const { isFollowed, isLiked, toggleFollow, toggleLike, user: prefUser, isLoaded } = useAnimePreferences();
   const {
@@ -60,6 +62,33 @@ export function AnimeDetail() {
     enabled: !!slug,
     gcTime: 0, // Force clear cache so new episodes won't be missed on re-visit
   });
+
+  // Automatically trigger background re-scrape & purge when opening detail page
+  useState(() => {
+    if (slug) {
+      AnimeApi.syncAnime(slug)
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ['anime', slug] });
+        })
+        .catch(() => {});
+    }
+  });
+
+  const handleSyncData = async () => {
+    if (!slug || isSyncing) return;
+    setIsSyncing(true);
+    setSyncFeedback('Menyinkronkan data dari Otakudesu...');
+    try {
+      await AnimeApi.syncAnime(slug);
+      await queryClient.invalidateQueries({ queryKey: ['anime', slug] });
+      setSyncFeedback('Data berhasil diperbarui!');
+    } catch (err: any) {
+      setSyncFeedback('Gagal sinkronisasi. Coba beberapa saat lagi.');
+    } finally {
+      setIsSyncing(false);
+      setTimeout(() => setSyncFeedback(''), 4000);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -127,7 +156,17 @@ export function AnimeDetail() {
               <h1 className="text-2xl sm:text-3xl md:text-5xl font-black leading-tight mb-1 md:mb-2">{data.title}</h1>
               {data.japanese_title && <h2 className="text-sm md:text-xl text-gray-400 font-medium">{data.japanese_title}</h2>}
 
-              <div className="mt-3 md:mt-4 flex flex-wrap gap-2 justify-center md:justify-start">
+              <div className="mt-3 md:mt-4 flex flex-wrap gap-2 justify-center md:justify-start items-center">
+                <button
+                  type="button"
+                  onClick={handleSyncData}
+                  disabled={isSyncing}
+                  className="inline-flex items-center gap-2 rounded-lg border border-red-500/40 bg-red-600/20 text-red-300 hover:bg-red-600/30 px-3 py-1.5 text-xs md:text-sm font-semibold transition-all shadow-md shadow-red-900/20"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-red-400' : ''}`} />
+                  {isSyncing ? 'Syncing...' : 'Sync Data Otakudesu'}
+                </button>
+
                 {(watchUser || prefUser) && isLoaded && (
                   <>
                     <button
@@ -150,6 +189,12 @@ export function AnimeDetail() {
                   </>
                 )}
               </div>
+
+              {syncFeedback && (
+                <div className="mt-2 text-xs font-semibold text-red-400 bg-red-950/40 border border-red-900/40 px-3 py-1.5 rounded-lg inline-block">
+                  {syncFeedback}
+                </div>
+              )}
 
               <div className="flex flex-wrap justify-center md:justify-start gap-1.5 md:gap-2 mt-3 md:mt-4">
                 {data.genres?.map((g) => (
@@ -221,12 +266,34 @@ export function AnimeDetail() {
             </div>
 
             <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-0">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <h3 className="text-xl md:text-2xl font-bold flex items-center gap-2 justify-start">
                   <Hash className="w-5 h-5 md:w-6 md:h-6 text-red-500" />
                   Episodes
                 </h3>
-                <span className="text-xs md:text-sm text-gray-400 text-left">{data.episodes?.length || 0} Episodes Available</span>
+
+                {/* Episode Filter & Sort Bar */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Cari episode..."
+                      value={episodeSearchQuery}
+                      onChange={(e) => setEpisodeSearchQuery(e.target.value)}
+                      className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-1.5 pl-8 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-red-500 w-36 sm:w-44"
+                    />
+                    <SearchIcon className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setEpisodeSortOrder(episodeSortOrder === 'asc' ? 'desc' : 'asc')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 rounded-lg text-xs font-semibold text-gray-300 transition"
+                  >
+                    <ArrowUpDown className="w-3.5 h-3.5 text-red-500" />
+                    <span>{episodeSortOrder === 'asc' ? 'Terlama' : 'Terbaru'}</span>
+                  </button>
+                </div>
               </div>
 
               {shouldResumeCurrentEpisode && latestProgressEntry && (
@@ -256,46 +323,57 @@ export function AnimeDetail() {
               )}
 
               <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
-                {data.episodes?.map((ep) => {
-                  const epNumber = ep.title.match(/Episode\s+(\d+)/i)?.[1] || ep.episode_number;
-                  const episodeNum = Number(epNumber);
-                  const allWatchedEps = slug ? getWatchedEpisodesForAnime(slug) : [];
-                  const watched = allWatchedEps.includes(episodeNum);
-                  const progressEntry = slug ? getEpisodeProgress(slug) : null;
-                  const inProgress = !!progressEntry && !progressEntry.completed && progressEntry.progressPercent > 0;
-                  return (
-                    <Link
-                      key={ep.id}
-                      to={`/anime/${slug}/${ep.endpoint}`}
-                      className={`group relative bg-zinc-900 hover:bg-zinc-800 rounded-lg p-2 md:p-3 border transition-all flex flex-col justify-between h-full text-center md:text-left ${watched ? 'border-green-500/50 hover:border-green-500/80 bg-green-900/10' : inProgress ? 'border-amber-500/50 hover:border-amber-400/80 bg-amber-900/10' : 'border-white/5 hover:border-red-500/50'}`}
-                    >
-                      {watched && (
-                        <div className="absolute top-1 right-1 md:top-2 md:right-2">
-                          <Check className="w-3 h-3 md:w-4 md:h-4 text-green-500" />
+                {([...(data.episodes || [])])
+                  .filter((ep) => {
+                    if (!episodeSearchQuery.trim()) return true;
+                    const query = episodeSearchQuery.trim().toLowerCase();
+                    return ep.title.toLowerCase().includes(query) || String(ep.episode_number).includes(query);
+                  })
+                  .sort((a, b) => {
+                    const numA = Number(a.episode_number || 0);
+                    const numB = Number(b.episode_number || 0);
+                    return episodeSortOrder === 'asc' ? numA - numB : numB - numA;
+                  })
+                  .map((ep) => {
+                    const epNumber = ep.title.match(/Episode\s+(\d+)/i)?.[1] || ep.episode_number;
+                    const episodeNum = Number(epNumber);
+                    const allWatchedEps = slug ? getWatchedEpisodesForAnime(slug) : [];
+                    const watched = allWatchedEps.includes(episodeNum);
+                    const progressEntry = slug ? getEpisodeProgress(slug) : null;
+                    const inProgress = !!progressEntry && !progressEntry.completed && progressEntry.progressPercent > 0;
+                    return (
+                      <Link
+                        key={ep.id}
+                        to={`/anime/${slug}/${ep.endpoint}`}
+                        className={`group relative bg-zinc-900 hover:bg-zinc-800 rounded-lg p-2 md:p-3 border transition-all flex flex-col justify-between h-full text-center md:text-left ${watched ? 'border-green-500/50 hover:border-green-500/80 bg-green-900/10' : inProgress ? 'border-amber-500/50 hover:border-amber-400/80 bg-amber-900/10' : 'border-white/5 hover:border-red-500/50'}`}
+                      >
+                        {watched && (
+                          <div className="absolute top-1 right-1 md:top-2 md:right-2">
+                            <Check className="w-3 h-3 md:w-4 md:h-4 text-green-500" />
+                          </div>
+                        )}
+                        {!watched && inProgress && (
+                          <div className="absolute top-1 right-1 md:top-2 md:right-2 flex items-center gap-1">
+                            <Circle className="w-2.5 h-2.5 md:w-3 md:h-3 text-amber-400 fill-current" />
+                            <span className="text-[8px] md:text-[9px] text-amber-300 font-semibold">{Math.round(progressEntry.progressPercent)}%</span>
+                          </div>
+                        )}
+                        <div className="flex flex-col md:flex-row md:justify-between items-center md:items-start mb-1 md:mb-2 w-full gap-1">
+                          <div className={`text-[9px] md:text-[10px] uppercase tracking-widest hidden md:block ${watched ? 'text-green-500/70' : 'text-gray-500'}`}>Episode</div>
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity hidden md:block">
+                            <Play className="w-3.5 h-3.5 text-red-500 fill-current" />
+                          </div>
                         </div>
-                      )}
-                      {!watched && inProgress && (
-                        <div className="absolute top-1 right-1 md:top-2 md:right-2 flex items-center gap-1">
-                          <Circle className="w-2.5 h-2.5 md:w-3 md:h-3 text-amber-400 fill-current" />
-                          <span className="text-[8px] md:text-[9px] text-amber-300 font-semibold">{Math.round(progressEntry.progressPercent)}%</span>
+                        <div className={`text-base sm:text-lg md:text-2xl font-black transition-colors mb-0.5 leading-none ${watched ? 'text-green-500 group-hover:text-green-400' : inProgress ? 'text-amber-300 group-hover:text-amber-200' : 'text-white group-hover:text-red-500'}`}>
+                          <span className={`md:hidden text-[10px] font-normal mr-1 ${watched ? 'text-green-500/70' : inProgress ? 'text-amber-300/70' : 'text-gray-500'}`}>Ep</span>
+                          {epNumber}
                         </div>
-                      )}
-                      <div className="flex flex-col md:flex-row md:justify-between items-center md:items-start mb-1 md:mb-2 w-full gap-1">
-                        <div className={`text-[9px] md:text-[10px] uppercase tracking-widest hidden md:block ${watched ? 'text-green-500/70' : 'text-gray-500'}`}>Episode</div>
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity hidden md:block">
-                          <Play className="w-3.5 h-3.5 text-red-500 fill-current" />
+                        <div className={`mt-1 md:mt-2 text-[8px] md:text-[10px] truncate w-full ${watched ? 'text-green-500/50' : inProgress ? 'text-amber-300/70' : 'text-gray-400'}`}>
+                          {ep.date?.split(' ')[0]}
                         </div>
-                      </div>
-                      <div className={`text-base sm:text-lg md:text-2xl font-black transition-colors mb-0.5 leading-none ${watched ? 'text-green-500 group-hover:text-green-400' : inProgress ? 'text-amber-300 group-hover:text-amber-200' : 'text-white group-hover:text-red-500'}`}>
-                        <span className={`md:hidden text-[10px] font-normal mr-1 ${watched ? 'text-green-500/70' : inProgress ? 'text-amber-300/70' : 'text-gray-500'}`}>Ep</span>
-                        {epNumber}
-                      </div>
-                      <div className={`mt-1 md:mt-2 text-[8px] md:text-[10px] truncate w-full ${watched ? 'text-green-500/50' : inProgress ? 'text-amber-300/70' : 'text-gray-400'}`}>
-                        {ep.date?.split(' ')[0]}
-                      </div>
-                    </Link>
-                  );
-                })}
+                      </Link>
+                    );
+                  })}
               </div>
             </div>
 

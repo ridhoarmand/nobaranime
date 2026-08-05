@@ -41,8 +41,17 @@ export class AnimeApi {
     return this.fetch<AnimeResponse<Anime[]>>(`/completed?page=${page}`);
   }
 
-  static async getSearch(query: string) {
-    return this.fetch<AnimeResponse<Anime[]>>(`/search?q=${encodeURIComponent(query)}`);
+  static async getSearch(query: string, limit?: number) {
+    const limitQuery = limit ? `&limit=${limit}` : '';
+    return this.fetch<AnimeResponse<Anime[]>>(`/search?q=${encodeURIComponent(query)}${limitQuery}`);
+  }
+
+  static async syncAnime(slug: string) {
+    return this.fetch<AnimeResponse<Anime>>(`/anime/${slug}/sync`, { method: 'POST' });
+  }
+
+  static async syncEpisode(slug: string) {
+    return this.fetch<AnimeResponse<Episode>>(`/episode/${slug}/sync`, { method: 'POST' });
   }
 
   static async getAnimeList(page = 1, initial = 'A') {

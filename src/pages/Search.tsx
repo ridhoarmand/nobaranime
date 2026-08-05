@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';import { useSearchParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { SearchIcon, Tv, AlertCircle, Loader2 } from 'lucide-react';
 import { AnimeApi } from '../lib/api';
 import { Anime } from '../types/anime';
@@ -6,6 +7,7 @@ import { AnimeCard } from '../components/anime/AnimeCard';
 
 export function Search() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const query = searchParams.get('q') || '';
   const [results, setResults] = useState<Anime[]>([]);
   const [loading, setLoading] = useState(false);
@@ -76,7 +78,7 @@ export function Search() {
                   if (e.key === 'Enter') {
                     const val = e.currentTarget.value.trim();
                     if (val) {
-                      window.location.href = `/search?q=${encodeURIComponent(val)}`;
+                      navigate(`/search?q=${encodeURIComponent(val)}`);
                     }
                   }
                 }}

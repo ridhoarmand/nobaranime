@@ -5,7 +5,7 @@ import { ListFilter } from 'lucide-react';
 
 export function AnimeList() {
   const [initial, setInitial] = useState('A');
-  const alphabets = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+  const alphabets = ['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
 
   const { data, isLoading } = useQuery({
     queryKey: ['anime-list', initial, 1],

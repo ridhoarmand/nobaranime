@@ -1,15 +1,20 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { AnimeApi } from '../lib/api';
 import { AnimePlayer } from '../components/anime/AnimePlayer';
 import { ResolutionDownloadDropdown } from '../components/anime/ResolutionDownloadDropdown';
-import { ChevronLeft, ChevronRight, Home, List } from 'lucide-react';
+import { QuickEpisodeDrawer } from '../components/anime/QuickEpisodeDrawer';
+import { ChevronLeft, ChevronRight, Home, List, RefreshCw } from 'lucide-react';
 import { useWatchHistory } from '../hooks/useWatchHistory';
 
 export function AnimeWatch() {
   const { slug, episode } = useParams<{ slug: string; episode: string }>();
-  const { updateWatchProgress } = useWatchHistory();
+  const queryClient = useQueryClient();
+  const { updateWatchProgress, getWatchedEpisodesForAnime } = useWatchHistory();
+  const [showEpisodeSelector, setShowEpisodeSelector] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncFeedback, setSyncFeedback] = useState('');
 
   const {
     data: response,
@@ -19,8 +24,31 @@ export function AnimeWatch() {
     queryKey: ['episode', episode],
     queryFn: () => AnimeApi.getEpisode(episode!),
     enabled: !!episode,
-    gcTime: 0, // Do not cache episode details to always get the latest next_episode URL
+    gcTime: 0,
   });
+
+  // Fetch full anime detail for Quick Episode Selector
+  const { data: animeDetailRes } = useQuery({
+    queryKey: ['anime', slug],
+    queryFn: () => AnimeApi.getDetail(slug!),
+    enabled: !!slug && showEpisodeSelector,
+  });
+
+  const handleSyncEpisode = async () => {
+    if (!episode || isSyncing) return;
+    setIsSyncing(true);
+    setSyncFeedback('Refreshed link Otakudesu...');
+    try {
+      await AnimeApi.syncEpisode(episode);
+      await queryClient.invalidateQueries({ queryKey: ['episode', episode] });
+      setSyncFeedback('Link episode diperbarui!');
+    } catch (err) {
+      setSyncFeedback('Gagal sinkronisasi link.');
+    } finally {
+      setIsSyncing(false);
+      setTimeout(() => setSyncFeedback(''), 4000);
+    }
+  };
 
   const handlePlaybackConfirmed = useCallback(() => {
     if (!response?.data || !slug) return;
@@ -28,12 +56,11 @@ export function AnimeWatch() {
     const data = response.data;
     const estimatedMinutes = extractDurationMinutes(data.anime?.duration);
 
-    // Mark at 100% when playback is confirmed (will only update if reaching actual completion threshold later)
     updateWatchProgress({
       animeSlug: slug,
       animeTitle: data.anime?.title || 'Unknown',
       animeThumb: data.anime?.thumb || '',
-      progressPercent: 99, // Near complete
+      progressPercent: 99,
       watchedDurationSec: 0,
       estimatedDurationSec: Math.round(estimatedMinutes * 60),
     });
@@ -75,21 +102,39 @@ export function AnimeWatch() {
   const animeInfo = data.anime;
   const downloads = data.downloads || {};
   const estimatedDurationMinutes = extractDurationMinutes(animeInfo?.duration);
+  const watchedEpisodes = slug ? getWatchedEpisodesForAnime(slug) : [];
 
   return (
     <main className="bg-black min-h-screen text-white pt-4 pb-20 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-400 mb-4 sm:mb-6">
-          <Link to="/" className="hover:text-red-500 transition-colors flex items-center gap-1 shrink-0">
-            <Home className="w-4 h-4 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Home</span>
-          </Link>
-          <span className="shrink-0">/</span>
-          <Link to={`/anime/${slug}`} className="hover:text-red-500 transition-colors truncate max-w-[150px] sm:max-w-[300px]">
-            {animeInfo?.title || 'Anime Details'}
-          </Link>
-          <span className="shrink-0">/</span>
-          <span className="text-white font-medium shrink-0 text-red-500">Episode {data.episode_number}</span>
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-400">
+            <Link to="/" className="hover:text-red-500 transition-colors flex items-center gap-1 shrink-0">
+              <Home className="w-4 h-4 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Home</span>
+            </Link>
+            <span className="shrink-0">/</span>
+            <Link to={`/anime/${slug}`} className="hover:text-red-500 transition-colors truncate max-w-[150px] sm:max-w-[300px]">
+              {animeInfo?.title || 'Anime Details'}
+            </Link>
+            <span className="shrink-0">/</span>
+            <span className="text-white font-medium shrink-0 text-red-500">Episode {data.episode_number}</span>
+          </div>
+
+          <button
+            onClick={handleSyncEpisode}
+            disabled={isSyncing}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/40 rounded-lg text-xs font-semibold transition"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+            <span>{isSyncing ? 'Syncing...' : 'Sync Link'}</span>
+          </button>
         </div>
+
+        {syncFeedback && (
+          <div className="mb-4 text-xs font-semibold text-red-400 bg-red-950/40 border border-red-900/40 px-3 py-1.5 rounded-lg inline-block">
+            {syncFeedback}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
@@ -104,31 +149,34 @@ export function AnimeWatch() {
               onWatchProgress={handleWatchProgress}
             />
 
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center justify-between gap-2 sm:gap-4">
               {data.prev_episode ? (
                 <Link
                   to={`/anime/${slug}/${data.prev_episode}`}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-zinc-900 hover:bg-zinc-800 rounded-lg border border-white/5 hover:border-red-500/30 transition-all font-medium"
+                  className="flex-1 flex items-center justify-center gap-1.5 py-3 px-3 sm:px-4 bg-zinc-900 hover:bg-zinc-800 rounded-lg border border-white/5 hover:border-red-500/30 transition-all text-xs sm:text-sm font-medium"
                 >
-                  <ChevronLeft className="w-5 h-5" /> Previous
+                  <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" /> Prev
                 </Link>
               ) : (
                 <div className="flex-1" />
               )}
 
-              <Link
-                to={`/anime/${slug}`}
-                className="flex items-center justify-center gap-2 py-3 px-4 bg-zinc-900 hover:bg-zinc-800 rounded-lg border border-white/5 hover:border-red-500/30 transition-all text-gray-400 hover:text-white"
+              {/* Quick Episode Picker Button */}
+              <button
+                type="button"
+                onClick={() => setShowEpisodeSelector(true)}
+                className="flex items-center justify-center gap-1.5 py-3 px-4 bg-zinc-900 hover:bg-zinc-800 rounded-lg border border-white/5 hover:border-red-500/30 transition-all text-xs sm:text-sm font-bold text-gray-200 hover:text-white"
               >
-                <List className="w-5 h-5" />
-              </Link>
+                <List className="w-4 h-4 sm:w-5 sm:h-5 text-red-500" />
+                <span>Pilih Ep</span>
+              </button>
 
               {data.next_episode ? (
                 <Link
                   to={`/anime/${slug}/${data.next_episode}`}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-red-600 hover:bg-red-700 rounded-lg text-white font-bold transition-all shadow-lg shadow-red-900/20"
+                  className="flex-1 flex items-center justify-center gap-1.5 py-3 px-3 sm:px-4 bg-red-600 hover:bg-red-700 rounded-lg text-white text-xs sm:text-sm font-bold transition-all shadow-lg shadow-red-900/20"
                 >
-                  Next <ChevronRight className="w-5 h-5" />
+                  Next <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
                 </Link>
               ) : (
                 <div className="flex-1" />
@@ -160,6 +208,15 @@ export function AnimeWatch() {
           </div>
         </div>
       </div>
+
+      <QuickEpisodeDrawer
+        isOpen={showEpisodeSelector}
+        onClose={() => setShowEpisodeSelector(false)}
+        slug={slug}
+        currentEpisodeEndpoint={episode}
+        episodes={animeDetailRes?.data?.episodes}
+        watchedEpisodes={watchedEpisodes}
+      />
     </main>
   );
 }
