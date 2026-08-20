@@ -11,7 +11,7 @@ ENV VITE_ANIME_API_BASE_URL="/api"
 RUN npm run build
 
 # ── Stage 2: Build Server (Bun + Hono) ──
-FROM oven/bun:1 AS server-builder
+FROM oven/bun:1-alpine AS server-builder
 WORKDIR /app/server
 
 COPY server/package*.json ./
@@ -27,10 +27,9 @@ WORKDIR /app
 # Install curl for healthcheck
 RUN apk add --no-cache curl bash
 
-# Copy server production dependencies and distribution
-COPY server/package*.json ./server/
-RUN cd server && bun install --production
-
+# Copy server dependencies and built distribution directly from server-builder
+COPY --from=server-builder /app/server/package.json ./server/package.json
+COPY --from=server-builder /app/server/node_modules ./server/node_modules
 COPY --from=server-builder /app/server/dist ./server/dist
 COPY --from=server-builder /app/server/drizzle ./server/drizzle
 
