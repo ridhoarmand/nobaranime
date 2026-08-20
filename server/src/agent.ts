@@ -1,6 +1,6 @@
 import { Scheduler } from './services/scheduler.js';
 import { ScraperService } from './services/scraper.js';
-import { db } from './db/index.js';
+import { db, closeDbPool } from './db/index.js';
 
 console.log('[Agent] Starting OtakuDesu Scraper Agent...');
 
@@ -28,6 +28,7 @@ const epsNumber = epsArgIndex !== -1 && args[epsArgIndex + 1]
     const isDomainOk = await ScraperService.checkDomainStatus();
     if (!isDomainOk) {
       console.log('[Agent] 🚫 Domain check failed or changed. Exiting to prevent wrong scrapes.');
+      await closeDbPool();
       process.exit(1);
     }
 
@@ -42,6 +43,7 @@ const epsNumber = epsArgIndex !== -1 && args[epsArgIndex + 1]
         console.log(`[Agent] Manual trigger: Full rescrape of "${animeEndpoint}" (force re-scrape all episodes)`);
         await ScraperService.scrapeAnimeDetail(animeEndpoint, true);
       }
+      await closeDbPool();
       process.exit(0);
     }
 
@@ -50,6 +52,7 @@ const epsNumber = epsArgIndex !== -1 && args[epsArgIndex + 1]
       console.log('[Agent] Manual trigger: Scrape ALL anime from /anime-list/');
       console.log('[Agent] This will take a very long time. Press Ctrl+C to stop.');
       await ScraperService.scrapeAllAnime();
+      await closeDbPool();
       process.exit(0);
     }
 
@@ -57,6 +60,7 @@ const epsNumber = epsArgIndex !== -1 && args[epsArgIndex + 1]
     if (args.includes('--ongoing')) {
       console.log(`[Agent] Manual trigger: Scrape Ongoing Anime (${pages} page(s), max 6)`);
       await ScraperService.scrapeOngoingAnime(pages);
+      await closeDbPool();
       process.exit(0);
     }
 
@@ -64,6 +68,7 @@ const epsNumber = epsArgIndex !== -1 && args[epsArgIndex + 1]
     if (args.includes('--completed')) {
       console.log(`[Agent] Manual trigger: Scrape Completed Anime (${pages} page(s), max 6)`);
       await ScraperService.scrapeCompletedAnime(pages);
+      await closeDbPool();
       process.exit(0);
     }
 
@@ -71,6 +76,7 @@ const epsNumber = epsArgIndex !== -1 && args[epsArgIndex + 1]
     if (args.includes('--schedule')) {
       console.log('[Agent] Manual trigger: Scrape Schedule');
       await ScraperService.scrapeSchedule();
+      await closeDbPool();
       process.exit(0);
     }
 
@@ -79,6 +85,7 @@ const epsNumber = epsArgIndex !== -1 && args[epsArgIndex + 1]
       console.log('[Agent] Manual trigger: Purge Orphan Anime Records (0 episodes)');
       const purged = await ScraperService.purgeOrphanAnime();
       console.log(`[Agent] Done! Purged ${purged} orphan anime records.`);
+      await closeDbPool();
       process.exit(0);
     }
 
@@ -86,6 +93,7 @@ const epsNumber = epsArgIndex !== -1 && args[epsArgIndex + 1]
     if (args.includes('--check')) {
       console.log('[Agent] Manual trigger: Check for New Episodes (smart multi-page scan)');
       await ScraperService.checkNewEpisodes();
+      await closeDbPool();
       process.exit(0);
     }
 
@@ -95,8 +103,9 @@ const epsNumber = epsArgIndex !== -1 && args[epsArgIndex + 1]
 
     process.stdin.resume();
 
-    const cleanup = () => {
-      console.log('[Agent] Stopping...');
+    const cleanup = async () => {
+      console.log('[Agent] Stopping gracefully...');
+      await closeDbPool();
       process.exit(0);
     };
 
@@ -104,6 +113,7 @@ const epsNumber = epsArgIndex !== -1 && args[epsArgIndex + 1]
     process.on('SIGTERM', cleanup);
   } catch (error) {
     console.error('[Agent] Fatal error:', error);
+    await closeDbPool();
     process.exit(1);
   }
 })();

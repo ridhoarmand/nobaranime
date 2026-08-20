@@ -13,15 +13,25 @@ const databaseUrl = process.env.DATABASE_URL || 'mysql://root:password@localhost
 export const pool = mysql.createPool({
   uri: databaseUrl,
   waitForConnections: true,
-  connectionLimit: 10,
-  maxIdle: 10,
-  idleTimeout: 60000,
-  queueLimit: 0,
+  connectionLimit: 6,
+  maxIdle: 2,
+  idleTimeout: 10000, // Close idle connections in 10s to prevent SLEEP zombie buildup
+  connectTimeout: 10000,
+  queueLimit: 50,
   enableKeepAlive: true,
-  keepAliveInitialDelay: 0,
+  keepAliveInitialDelay: 10000,
 });
 
 export const db = drizzle(pool, { schema, mode: 'default' });
+
+export async function closeDbPool() {
+  try {
+    await pool.end();
+    console.log('[DB] Connection pool closed cleanly.');
+  } catch (err: any) {
+    console.warn('[DB Pool Close Warning]:', err.message);
+  }
+}
 
 export async function ensureNewColumns() {
   try {

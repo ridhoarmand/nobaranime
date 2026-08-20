@@ -4,7 +4,7 @@ import { cors } from 'hono/cors';
 import { existsSync } from 'fs';
 import { ScraperService } from './services/scraper.js';
 import { Scheduler } from './services/scheduler.js';
-import { db, runAutoMigrations } from './db/index.js';
+import { db, runAutoMigrations, closeDbPool } from './db/index.js';
 import { anime, episodes, batches, genres, anime_genres, streams, downloads, batch_downloads, recommendations } from './db/schema.js';
 import { eq, desc, asc, sql, and, inArray } from 'drizzle-orm';
 
@@ -977,8 +977,15 @@ const port = parseInt(process.env.PORT || '8000');
 runAutoMigrations().catch((err) => console.error('[DB Migration Init Error]', err));
 Scheduler.init();
 
-console.log(`[NobarAnime] Server is running on port ${port}`);
-console.log(`[NobarAnime] Client dist path: ${clientDist}`);
+// Graceful shutdown hooks
+const shutdown = async () => {
+  console.log('[NobarAnime] Shutting down server gracefully...');
+  await closeDbPool();
+  process.exit(0);
+};
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
 
 export default {
   port,

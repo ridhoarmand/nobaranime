@@ -5,8 +5,8 @@ import { anime, episodes, batches, genres, anime_genres, streams, downloads, bat
 import { eq, like, sql, and } from 'drizzle-orm';
 
 const baseUrl = process.env.BASE_URL || 'https://otakudesu.blog';
-const BATCH_SIZE = 3; // Max concurrent episode scrapes
-const DELAY_MS = 500; // Delay between batches (ms)
+const BATCH_SIZE = 1; // Sequential episode scrapes (safe for DB connections)
+const DELAY_MS = 800; // Delay between episode scrapes (ms)
 const MAX_ONGOING_PAGES = 6; // Maximum pages for ongoing anime
 const ALL_ANIME_DELAY_MS = 3000; // Delay between each anime in --all mode (rate limit protection)
 
@@ -370,8 +370,9 @@ export const ScraperService = {
   },
 
   // ─── Scrape anime details and episodes ───
-  // forceRescrape: if true, re-scrape ALL episodes even if they exist (useful for --anime command)
-  scrapeAnimeDetail: async (endpointStr: string, forceRescrape = false) => {
+  // forceRescrape: if true, re-scrape ALL episodes even if they exist
+  // scrapeEpisodes: if false, only save anime parent metadata without cascading into episode scrapes
+  scrapeAnimeDetail: async (endpointStr: string, forceRescrape = false, scrapeEpisodes = true) => {
     try {
       const url = `${baseUrl}/anime/${endpointStr}/`;
       const response: any = await fetchService(url);
@@ -593,6 +594,11 @@ export const ScraperService = {
                 .onDuplicateKeyUpdate({ set: { anime_id: animeId } });
             }
           }
+        }
+
+        // If scrapeEpisodes is false, return immediately after saving anime metadata, genres & recommendations
+        if (!scrapeEpisodes) {
+          return animeRecord;
         }
 
         const episodeTasks: (() => Promise<any>)[] = [];
@@ -999,8 +1005,8 @@ export const ScraperService = {
         if (parentAnimeEndpoint) {
           let parentAnime = await db.query.anime.findFirst({ where: eq(anime.endpoint, parentAnimeEndpoint) });
           if (!parentAnime) {
-            console.log(`[Parent Sync] Parent anime "${parentAnimeEndpoint}" not found in DB. Scraping parent anime...`);
-            parentAnime = await ScraperService.scrapeAnimeDetail(parentAnimeEndpoint);
+            console.log(`[Parent Sync] Parent anime "${parentAnimeEndpoint}" not found in DB. Scraping parent anime metadata only...`);
+            parentAnime = await ScraperService.scrapeAnimeDetail(parentAnimeEndpoint, false, false);
           }
           if (parentAnime?.id) {
             finalAnimeId = parentAnime.id;
@@ -1011,8 +1017,8 @@ export const ScraperService = {
           const slugCandidate = endpointStr.replace(/-episode-\d+.*$/i, '-sub-indo').replace(/-sub-indo-sub-indo$/i, '-sub-indo');
           let parentAnime = await db.query.anime.findFirst({ where: eq(anime.endpoint, slugCandidate) });
           if (!parentAnime) {
-            console.log(`[Parent Sync Fallback] Scraping candidate parent anime "${slugCandidate}"...`);
-            parentAnime = await ScraperService.scrapeAnimeDetail(slugCandidate);
+            console.log(`[Parent Sync Fallback] Scraping candidate parent anime "${slugCandidate}" metadata only...`);
+            parentAnime = await ScraperService.scrapeAnimeDetail(slugCandidate, false, false);
           }
           if (parentAnime?.id) {
             finalAnimeId = parentAnime.id;
