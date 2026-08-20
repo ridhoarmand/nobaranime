@@ -5,7 +5,7 @@ import { serveStatic } from 'hono/bun';
 import { existsSync } from 'fs';
 import { ScraperService } from './services/scraper.js';
 import { Scheduler } from './services/scheduler.js';
-import { db } from './db/index.js';
+import { db, runAutoMigrations } from './db/index.js';
 import { anime, episodes, batches, genres, anime_genres, streams, downloads, batch_downloads } from './db/schema.js';
 import { eq, desc, asc, sql, and, inArray } from 'drizzle-orm';
 
@@ -14,6 +14,18 @@ const api = new Hono();
 
 app.use('*', logger());
 app.use('*', cors());
+
+// Global error handler
+app.onError((err, c) => {
+  console.error('[NobarAnime Global Error]:', err);
+  return c.json(
+    {
+      status: false,
+      message: err.message || 'Internal Server Error',
+    },
+    500
+  );
+});
 
 const PER_PAGE = 25;
 
@@ -734,12 +746,7 @@ api.post('/anime/:endpoint/sync', async (c) => {
     const scraped = await ScraperService.scrapeAnimeDetail(endpoint, true);
     if (!scraped) return json404(c, 'Gagal menyinkronkan anime dari Otakudesu');
 
-    lastSyncMap.set(`anime:${endpoint}`, Date.now());
-    c.header('X-RateLimit-Limit', '1');
-    c.header('X-RateLimit-Remaining', '1');
-
-    // Return fresh anime details & episodes
-    const [animeData] = await db.select().from(anime).where(eq(anime.endpoint, endpoint)).limit(1);
+const [animeData] = await db.select().from(anime).where(eq(anime.endpoint, endpoint)).limit(1);
     const episodeList = await db
       .select({ id: episodes.id, title: episodes.title, episode_number: episodes.episode_number, endpoint: episodes.endpoint, date: episodes.date })
       .from(episodes)
@@ -851,7 +858,8 @@ app.get('*', (c, next) => {
 
 const port = parseInt(process.env.PORT || '8000');
 
-// Start scheduler (cron jobs for scraping)
+// Initialize database schema & scheduler
+runAutoMigrations().catch((err) => console.error('[DB Migration Init Error]', err));
 Scheduler.init();
 
 console.log(`[NobarAnime] Server is running on port ${port}`);
