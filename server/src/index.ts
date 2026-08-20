@@ -819,6 +819,32 @@ api.post('/episode/:endpoint/sync', async (c) => {
 app.route('/api', api);
 
 // ── Static Files & SPA Fallback ──
+const MIME_TYPES: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.mjs': 'application/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.ico': 'image/x-icon',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.webmanifest': 'application/manifest+json',
+  '.wasm': 'application/wasm',
+};
+
+function getMimeType(filePath: string): string {
+  const dotIndex = filePath.lastIndexOf('.');
+  if (dotIndex === -1) return 'application/octet-stream';
+  const ext = filePath.slice(dotIndex).toLowerCase();
+  return MIME_TYPES[ext] || 'application/octet-stream';
+}
+
 const getClientDist = () => {
   const possiblePaths = [
     process.env.CLIENT_DIST_PATH,
@@ -845,14 +871,26 @@ app.use('*', async (c, next) => {
   const directPath = `${clientDist}${reqPath}`;
 
   if (existsSync(directPath)) {
-    return new Response(Bun.file(directPath));
+    const file = Bun.file(directPath);
+    const contentType = getMimeType(directPath) || file.type || 'application/octet-stream';
+    return new Response(file, {
+      headers: {
+        'Content-Type': contentType,
+        'Cache-Control': directPath.endsWith('index.html') || directPath.endsWith('sw.js')
+          ? 'no-cache, no-store, must-revalidate'
+          : 'public, max-age=31536000, immutable',
+      },
+    });
   }
 
   // Fallback to index.html for SPA client-side routes
   const indexPath = `${clientDist}/index.html`;
   if (existsSync(indexPath)) {
     return new Response(Bun.file(indexPath), {
-      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+      },
     });
   }
 
