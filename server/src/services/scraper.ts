@@ -207,6 +207,67 @@ export const ScraperService = {
     }
   },
 
+  // ─── Scrape completed anime (A-Z or paged) ───
+  scrapeCompletedAnime: async (pages = 1) => {
+    try {
+      pages = Math.min(Math.max(pages, 1), 6);
+      const animeList: any[] = [];
+
+      for (let page = 1; page <= pages; page++) {
+        const url = page === 1 ? `${baseUrl}/complete-anime/` : `${baseUrl}/complete-anime/page/${page}/`;
+        console.log(`[Completed] Fetching page ${page}/${pages}...`);
+        const response: any = await fetchService(url);
+
+        if (response.status === 200) {
+          const $ = cheerio.load(response.data);
+          const elements = $('.rapi, .venz, .venzt').find('ul > li').toArray();
+
+          if (elements.length === 0) break;
+
+          for (const el of elements) {
+            const title = $(el).find('h2, .jdlflm').text().trim();
+            const thumb = $(el).find('img').attr('src');
+            const epsText = $(el).find('.epz').text().replace(/[^0-9]/g, '').trim();
+            const available_eps = parseInt(epsText) || 0;
+            const animeHref = $(el).find('.thumb > a, a').attr('href') || '';
+            const endpoint = cleanEndpoint(animeHref);
+
+            if (endpoint && !endpoint.includes('complete-anime')) {
+              animeList.push({
+                title,
+                thumb,
+                available_eps,
+                total_eps: available_eps || null,
+                endpoint,
+                status: 'Completed' as const,
+              });
+            }
+          }
+        }
+      }
+
+      console.log(`[Completed] Found ${animeList.length} completed anime.`);
+      for (const item of animeList) {
+        try {
+          const animeInsert = {
+            title: item.title,
+            thumb: item.thumb,
+            available_eps: item.available_eps,
+            total_eps: item.total_eps,
+            endpoint: item.endpoint,
+            status: 'Completed' as const,
+          };
+          await db.insert(anime).values(animeInsert).onDuplicateKeyUpdate({ set: { status: 'Completed' } });
+          await ScraperService.scrapeAnimeDetail(item.endpoint);
+        } catch (e) {}
+      }
+      return animeList;
+    } catch (err: any) {
+      console.error('Error scraping completed anime:', err);
+      return [];
+    }
+  },
+
   // ─── Scrape ALL anime from /anime-list/ (A-Z) ───
   scrapeAllAnime: async () => {
     try {
@@ -506,13 +567,16 @@ export const ScraperService = {
           const episode_endpoint = cleanEndpoint(aTag.attr('href'));
           const episode_date = $(el).find('.zeebr, .newep').text().trim();
 
+          if (!episode_endpoint) continue;
+          if (validScrapedEndpoints.has(episode_endpoint)) continue;
+          validScrapedEndpoints.add(episode_endpoint);
+
           const episodeNumberMatch = episode_title.match(/Episode\s+(\d+(\.\d+)?)/i);
           const episode_number = episodeNumberMatch ? parseFloat(episodeNumberMatch[1]) : null;
 
           if (episode_endpoint.includes('batch')) {
             episodeTasks.push(() => ScraperService.scrapeBatchEpisode(episode_endpoint, animeId));
-          } else if (episode_endpoint) {
-            validScrapedEndpoints.add(episode_endpoint);
+          } else {
             // Skip if episode already exists in DB with valid streams & downloads (unless forceRescrape)
             if (!forceRescrape) {
               const existingEp = await db.query.episodes.findFirst({
@@ -901,6 +965,11 @@ export const ScraperService = {
           return null;
         }
 
+        if (streamsList.length === 0 && downloadsList.length === 0) {
+          console.warn(`[Episode Scrape] Skipping invalid episode "${endpointStr}" because 0 streams and 0 downloads were found.`);
+          return null;
+        }
+
         const epTitle = $('.venutama > h1').text() || additionalData.episode_title || '';
         let epNum = additionalData.episode_number;
         if (epNum === null || epNum === undefined || isNaN(epNum) || epNum === 0) {
@@ -1133,12 +1202,27 @@ export const ScraperService = {
       // Select items in latest releases section on homepage
       const releaseElements = $('.venz, .venzt, .rapi, .rseries, .postlist').find('ul > li').toArray();
 
+      const seenHomepageEp = new Set<string>();
+
       for (const el of releaseElements) {
-        const episodeHref = $(el).find('a[href*="/episode/"]').first().attr('href') || $(el).find('.thumb > a').attr('href') || '';
-        const animeHref = $(el).find('a[href*="/anime/"], h2 a').first().attr('href') || '';
+        // Find real episode link (must contain /episode/)
+        let episodeHref = $(el).find('a[href*="/episode/"]').first().attr('href') || '';
+        if (!episodeHref) {
+          const thumbHref = $(el).find('.thumb > a').attr('href') || '';
+          if (thumbHref.includes('/episode/')) episodeHref = thumbHref;
+        }
+
+        const animeHref = $(el).find('h2 a, .jdlflm a, a[href*="/anime/"]').first().attr('href') || '';
         const episode_endpoint = cleanEndpoint(episodeHref);
         const anime_endpoint = cleanEndpoint(animeHref);
-        if (!episode_endpoint || episode_endpoint.includes('batch') || episode_endpoint.includes('anime-list')) continue;
+
+        // Discard if empty or if episode endpoint is identically the anime endpoint
+        if (!episode_endpoint || episode_endpoint === anime_endpoint || episode_endpoint.includes('batch') || episode_endpoint.includes('anime-list')) {
+          continue;
+        }
+
+        if (seenHomepageEp.has(episode_endpoint)) continue;
+        seenHomepageEp.add(episode_endpoint);
 
         // Check if episode endpoint exists in DB
         const existingEp = await db.query.episodes.findFirst({
@@ -1281,6 +1365,17 @@ export const ScraperService = {
 
   purgeOrphanAnime: async () => {
     try {
+      // Clean up corrupt episode rows with 0 streams and 0 downloads
+      const allEps = await db.query.episodes.findMany({ columns: { id: true, endpoint: true, title: true } });
+      for (const ep of allEps) {
+        const streamCount = (await db.select({ count: sql<number>`COUNT(*)` }).from(streams).where(eq(streams.episode_id, ep.id)))[0]?.count || 0;
+        const dlCount = (await db.select({ count: sql<number>`COUNT(*)` }).from(downloads).where(eq(downloads.episode_id, ep.id)))[0]?.count || 0;
+        if (Number(streamCount) === 0 && Number(dlCount) === 0) {
+          console.log(`[Episode Cleanup] Removing corrupt episode "${ep.title}" (${ep.endpoint}) with 0 streams/downloads.`);
+          await db.delete(episodes).where(eq(episodes.id, ep.id));
+        }
+      }
+
       const allAnime = await db.query.anime.findMany({ columns: { id: true, title: true, endpoint: true } });
       let purgedCount = 0;
       for (const item of allAnime) {

@@ -14,13 +14,13 @@ export function Home() {
   const { data: ongoing, isLoading: ongoingLoading } = useQuery({
     queryKey: ['latest-episodes', 1],
     queryFn: () => AnimeApi.getLatestEpisodes(1),
-    gcTime: 0,
+    refetchInterval: (query) => (query.state.data?.data?.length ? false : 3000),
   });
 
   const { data: completed, isLoading: completedLoading } = useQuery({
     queryKey: ['completed', 1],
     queryFn: () => AnimeApi.getCompleted(1),
-    gcTime: 0,
+    refetchInterval: (query) => (query.state.data?.data?.length ? false : 3000),
   });
 
   const continueWatchingList = history
@@ -32,7 +32,7 @@ export function Home() {
     .filter((anime) => followedSlugSet.has(anime.endpoint) && !!anime.last_episode_slug)
     .slice(0, 10);
 
-  if (ongoingLoading || completedLoading) {
+  if (ongoingLoading && completedLoading) {
     return (
       <main className="bg-black min-h-screen pb-20 pt-20 flex justify-center items-center">
         <div className="w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
@@ -125,16 +125,22 @@ export function Home() {
             </Link>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-4">
-            {[...(ongoing?.data || [])].sort((a, b) => {
-              const dateA = a.last_episode_date || a.latest_episode?.date;
-              const dateB = b.last_episode_date || b.latest_episode?.date;
-              if (!dateA && !dateB) return 0;
-              if (!dateA) return 1;
-              if (!dateB) return -1;
-              return new Date(dateB).getTime() - new Date(dateA).getTime();
-            }).slice(0, 14).map((item) => (
-              <AnimeCard key={item.id} anime={item} showReleaseDayBadge directToLatestEpisode />
-            ))}
+            {ongoing?.data && ongoing.data.length > 0 ? (
+              [...ongoing.data].sort((a, b) => {
+                const dateA = a.last_episode_date || a.latest_episode?.date;
+                const dateB = b.last_episode_date || b.latest_episode?.date;
+                if (!dateA && !dateB) return 0;
+                if (!dateA) return 1;
+                if (!dateB) return -1;
+                return new Date(dateB).getTime() - new Date(dateA).getTime();
+              }).slice(0, 14).map((item) => (
+                <AnimeCard key={item.id} anime={item} showReleaseDayBadge directToLatestEpisode />
+              ))
+            ) : (
+              Array.from({ length: 7 }).map((_, idx) => (
+                <div key={idx} className="aspect-[2/3] md:aspect-[3/4] rounded-lg md:rounded-xl bg-zinc-900 animate-pulse" />
+              ))
+            )}
           </div>
         </section>
 
@@ -149,9 +155,15 @@ export function Home() {
             </Link>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-4">
-            {completed?.data?.slice(0, 14).map((item) => (
-              <AnimeCard key={item.id} anime={item} />
-            ))}
+            {completed?.data && completed.data.length > 0 ? (
+              completed.data.slice(0, 14).map((item) => (
+                <AnimeCard key={item.id} anime={item} />
+              ))
+            ) : (
+              Array.from({ length: 7 }).map((_, idx) => (
+                <div key={idx} className="aspect-[2/3] md:aspect-[3/4] rounded-lg md:rounded-xl bg-zinc-900 animate-pulse" />
+              ))
+            )}
           </div>
         </section>
       </div>

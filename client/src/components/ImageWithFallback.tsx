@@ -24,6 +24,8 @@ export function ImageWithFallback({ src, alt, className, fallbackText, container
       <img
         src={src}
         alt={alt}
+        referrerPolicy="no-referrer"
+        crossOrigin="anonymous"
         className={cn(className, 'transition-opacity duration-300', loaded ? 'opacity-100' : 'opacity-0')}
         onError={() => setError(true)}
         onLoad={() => setLoaded(true)}

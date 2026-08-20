@@ -52,8 +52,9 @@ export const Scheduler = {
         const [row] = await db.select({ count: sql<number>`COUNT(*)` }).from(anime);
         const count = Number(row?.count || 0);
         if (count === 0) {
-          console.log('[Scheduler] Empty database detected on startup! Starting initial bootstrap (Ongoing & Schedule)...');
+          console.log('[Scheduler] Empty database detected on startup! Starting initial bootstrap (Ongoing, Completed & Schedule)...');
           await ScraperService.scrapeOngoingAnime(2);
+          await ScraperService.scrapeCompletedAnime(1);
           await ScraperService.scrapeSchedule();
           console.log('[Scheduler] Initial bootstrap finished successfully!');
         }

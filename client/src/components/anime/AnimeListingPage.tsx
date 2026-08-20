@@ -43,6 +43,13 @@ export function AnimeListingPage({ title, initialData, fetchMore, showReleaseDay
     }
   }, [page, fetchMore, hasMore, loading]);
 
+  // Synchronize state whenever initialData updates (e.g., background fetch finishes)
+  useEffect(() => {
+    setData(initialData);
+    setPage(1);
+    setHasMore(true);
+  }, [initialData]);
+
   useEffect(() => {
     if (inView && hasMore && !loading) {
       loadMore();
@@ -149,6 +156,12 @@ export function AnimeListingPage({ title, initialData, fetchMore, showReleaseDay
       {hasMore && (
         <div ref={ref} className="flex justify-center py-8">
           <Loader2 className="w-8 h-8 text-red-600 animate-spin" />
+        </div>
+      )}
+
+      {data.length === 0 && !loading && !hasMore && (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <p className="text-gray-400 font-medium">Belum ada anime untuk kategori ini.</p>
         </div>
       )}
 

@@ -60,6 +60,13 @@ const epsNumber = epsArgIndex !== -1 && args[epsArgIndex + 1]
       process.exit(0);
     }
 
+    // --completed: Scrape completed anime pages
+    if (args.includes('--completed')) {
+      console.log(`[Agent] Manual trigger: Scrape Completed Anime (${pages} page(s), max 6)`);
+      await ScraperService.scrapeCompletedAnime(pages);
+      process.exit(0);
+    }
+
     // --schedule: Scrape broadcast schedule
     if (args.includes('--schedule')) {
       console.log('[Agent] Manual trigger: Scrape Schedule');
