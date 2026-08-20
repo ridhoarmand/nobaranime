@@ -1,7 +1,7 @@
 import * as cheerio from 'cheerio';
 import { fetchService } from '../lib/request.js';
 import { db } from '../db/index.js';
-import { anime, episodes, batches, genres, anime_genres, streams, downloads, batch_downloads } from '../db/schema.js';
+import { anime, episodes, batches, genres, anime_genres, streams, downloads, batch_downloads, recommendations } from '../db/schema.js';
 import { eq, like, sql, and } from 'drizzle-orm';
 
 const baseUrl = process.env.BASE_URL || 'https://otakudesu.blog';
@@ -441,6 +441,7 @@ export const ScraperService = {
         const type = details['tipe'];
         const studio = details['studio'];
         const duration = details['durasi'];
+        const season = details['musim'] || details['season'] || details['musim tayang'] || null;
 
         // Parse release_date to string 'YYYY-MM-DD' agar aman untuk kolom DATE/TIMESTAMP
         let release_date = null;
@@ -514,20 +515,21 @@ export const ScraperService = {
         }
 
         const animeData: any = {
-          title,
-          endpoint: endpointStr,
+          title: (title || endpointStr).slice(0, 255),
+          endpoint: endpointStr.slice(0, 255),
           thumb,
           synopsis,
           status: status as 'Ongoing' | 'Completed',
-          japanese_title,
+          japanese_title: japanese_title ? japanese_title.slice(0, 255) : null,
           score: isNaN(score) ? null : score,
-          producer,
-          type,
-          studio,
-          duration,
+          producer: producer ? producer.slice(0, 255) : null,
+          type: type ? type.slice(0, 50) : null,
+          studio: studio ? studio.slice(0, 255) : null,
+          duration: duration ? duration.slice(0, 50) : null,
+          season: season ? season.slice(0, 50) : null,
           release_date,
           total_eps,
-          broadcast_day,
+          broadcast_day: broadcast_day ? broadcast_day.slice(0, 20) : null,
         };
 
         const updateData = { ...animeData };
@@ -539,6 +541,41 @@ export const ScraperService = {
         const animeId = animeRecord?.id;
         if (!animeId) return null;
 
+        // Extract & Save Recommendations
+        const recommendationsList: { title: string; endpoint: string; thumb: string | null }[] = [];
+        $('.relat .animerecom, .isi-anime-terkait .animerecom, .recommendation .animerecom, .rekomendasi-anime .animerecom').each((_, el) => {
+          const aTag = $(el).find('a').first();
+          const recTitle = $(el).find('.judul-anime, h4, a').first().text().trim();
+          const recEndpoint = cleanEndpoint(aTag.attr('href'));
+          const recThumb = $(el).find('img').attr('src') || null;
+          if (recTitle && recEndpoint && recEndpoint !== endpointStr) {
+            recommendationsList.push({ title: recTitle, endpoint: recEndpoint, thumb: recThumb });
+          }
+        });
+        if (recommendationsList.length === 0) {
+          $('.relat a, .isi-anime-terkait a, .rekomendasi a').each((_, a) => {
+            const recHref = $(a).attr('href');
+            const recEndpoint = cleanEndpoint(recHref);
+            const recTitle = $(a).text().trim();
+            const recThumb = $(a).find('img').attr('src') || null;
+            if (recTitle && recEndpoint && recEndpoint !== endpointStr && !recommendationsList.some((r) => r.endpoint === recEndpoint)) {
+              recommendationsList.push({ title: recTitle, endpoint: recEndpoint, thumb: recThumb });
+            }
+          });
+        }
+
+        if (recommendationsList.length > 0) {
+          await db.delete(recommendations).where(eq(recommendations.anime_id, animeId));
+          for (const rec of recommendationsList.slice(0, 10)) {
+            await db.insert(recommendations).values({
+              anime_id: animeId,
+              title: rec.title.slice(0, 255),
+              endpoint: rec.endpoint.slice(0, 255),
+              thumb: rec.thumb,
+            });
+          }
+        }
+
         // Upsert Genres from detail page
         if (details['genre'] && details['genre'] !== 'Unknown') {
           const names = details['genre']
@@ -546,8 +583,9 @@ export const ScraperService = {
             .map((s) => s.trim())
             .filter((s) => s);
           for (const name of names) {
-            await db.insert(genres).values({ name }).onDuplicateKeyUpdate({ set: { name } });
-            const gRecord = await db.query.genres.findFirst({ where: eq(genres.name, name) });
+            const safeName = name.slice(0, 100);
+            await db.insert(genres).values({ name: safeName }).onDuplicateKeyUpdate({ set: { name: safeName } });
+            const gRecord = await db.query.genres.findFirst({ where: eq(genres.name, safeName) });
             if (gRecord) {
               await db
                 .insert(anime_genres)
@@ -574,7 +612,7 @@ export const ScraperService = {
           const episodeNumberMatch = episode_title.match(/Episode\s+(\d+(\.\d+)?)/i);
           const episode_number = episodeNumberMatch ? parseFloat(episodeNumberMatch[1]) : null;
 
-          if (episode_endpoint.includes('batch')) {
+          if (episode_endpoint.includes('batch') || episode_endpoint.includes('lengkap')) {
             episodeTasks.push(() => ScraperService.scrapeBatchEpisode(episode_endpoint, animeId));
           } else {
             // Skip if episode already exists in DB with valid streams & downloads (unless forceRescrape)
@@ -854,9 +892,29 @@ export const ScraperService = {
           }
         }
 
+        // Parse Credit & Encoder
+        let epCredit: string | null = null;
+        let epEncoder: string | null = null;
+        $('.infoepisode p, .info-eps p, .infozingle p, .kategoz p, .info p').each((_, p) => {
+          const text = $(p).text();
+          const [k, ...v] = text.split(':');
+          if (k && v.length > 0) {
+            const val = v.join(':').trim();
+            if (k.toLowerCase().includes('credit') || k.toLowerCase().includes('fansub')) {
+              epCredit = val;
+            } else if (k.toLowerCase().includes('encoder')) {
+              epEncoder = val;
+            }
+          }
+        });
+
         // Parse Download Links (Flattened)
         const downloadsList: any[] = [];
         $('.download ul li, .download-eps ul li, .moredl ul li').each((i, li) => {
+          const lineText = $(li).text();
+          const sizeMatch = lineText.match(/(\d+(\.\d+)?\s*(MB|GB|KB))/i);
+          const size = sizeMatch ? sizeMatch[0] : null;
+
           const rawResolution = $(li).find('strong').text().trim();
           if (rawResolution) {
             // Split "MP4 360p" into format="MP4", resolution="360p"
@@ -878,6 +936,7 @@ export const ScraperService = {
                     provider,
                     resolution,
                     format,
+                    size,
                     url,
                   });
                 }
@@ -982,6 +1041,8 @@ export const ScraperService = {
           title: epTitle,
           episode_number: epNum || null,
           endpoint: endpointStr,
+          credit: epCredit ? epCredit.slice(0, 100) : null,
+          encoder: epEncoder ? epEncoder.slice(0, 100) : null,
           date: episode_date,
         };
 
@@ -1055,8 +1116,13 @@ export const ScraperService = {
         console.log(`[Batch] Existing batch found but no downloads, re-scraping: ${endpointStr}`);
       }
 
-      const url = `${baseUrl}/batch/${endpointStr}`;
-      const response: any = await fetchService(url);
+      let url = endpointStr.includes('lengkap') ? `${baseUrl}/lengkap/${endpointStr}` : `${baseUrl}/batch/${endpointStr}`;
+      let response: any = await fetchService(url);
+
+      if (response.status !== 200) {
+        const fallbackUrl = endpointStr.includes('lengkap') ? `${baseUrl}/batch/${endpointStr}` : `${baseUrl}/lengkap/${endpointStr}`;
+        response = await fetchService(fallbackUrl);
+      }
 
       if (response.status === 200) {
         const $ = cheerio.load(response.data);
@@ -1067,6 +1133,10 @@ export const ScraperService = {
 
         const downloadsList: any[] = [];
         $('.batchlink > ul > li').each((i, li) => {
+          const lineText = $(li).text();
+          const sizeMatch = lineText.match(/(\d+(\.\d+)?\s*(MB|GB|KB))/i);
+          const size = sizeMatch ? sizeMatch[0] : null;
+
           const rawResolution = $(li).find('strong').text().trim(); // e.g., "MP4 360p"
           if (rawResolution) {
             let format = '';
@@ -1087,6 +1157,7 @@ export const ScraperService = {
                     provider,
                     resolution,
                     format,
+                    size,
                     url,
                   });
                 }
@@ -1391,6 +1462,117 @@ export const ScraperService = {
       return purgedCount;
     } catch (err: any) {
       console.error('[Orphan Cleanup Error]:', err.message);
+      return 0;
+    }
+  },
+
+  searchAnime: async (query: string) => {
+    try {
+      if (!query || !query.trim()) return [];
+      const cleanQuery = query.trim();
+      const url = `${baseUrl}/?s=${encodeURIComponent(cleanQuery)}&post_type=anime`;
+      const response: any = await fetchService(url);
+
+      if (response.status === 200) {
+        const $ = cheerio.load(response.data);
+        const results: any[] = [];
+
+        $('.chivsrc li, ul.chivsrc > li, .page .chivsrc li').each((_, el) => {
+          const aTag = $(el).find('h2 a').length > 0 ? $(el).find('h2 a') : $(el).find('a').first();
+          const title = aTag.text().trim();
+          const href = aTag.attr('href');
+          const endpoint = cleanEndpoint(href);
+          const thumb = $(el).find('img').attr('src');
+
+          let status: 'Ongoing' | 'Completed' = 'Completed';
+          let score: number | null = null;
+          const genreNames: string[] = [];
+
+          $(el).find('.set').each((_, setEl) => {
+            const text = $(setEl).text().trim();
+            const [k, ...v] = text.split(':');
+            if (k && v.length > 0) {
+              const val = v.join(':').trim();
+              if (k.toLowerCase().includes('status')) {
+                status = val.toLowerCase().includes('ongoing') ? 'Ongoing' : 'Completed';
+              } else if (k.toLowerCase().includes('rating') || k.toLowerCase().includes('skor')) {
+                const s = parseFloat(val);
+                if (!isNaN(s)) score = s;
+              } else if (k.toLowerCase().includes('genre')) {
+                $(setEl).find('a').each((_, gTag) => {
+                  const gName = $(gTag).text().trim();
+                  if (gName) genreNames.push(gName);
+                });
+              }
+            }
+          });
+
+          if (title && endpoint) {
+            results.push({
+              title,
+              endpoint,
+              thumb,
+              status,
+              score,
+              genreNames,
+            });
+          }
+        });
+
+        const savedAnime: any[] = [];
+        for (const item of results) {
+          const animeData: any = {
+            title: item.title.slice(0, 255),
+            endpoint: item.endpoint.slice(0, 255),
+            thumb: item.thumb,
+            status: item.status,
+            score: item.score,
+          };
+
+          await db.insert(anime).values(animeData).onDuplicateKeyUpdate({ set: animeData });
+          const [record] = await db.select().from(anime).where(eq(anime.endpoint, item.endpoint)).limit(1);
+          if (record) {
+            savedAnime.push(record);
+            for (const gName of item.genreNames) {
+              const safeName = gName.slice(0, 100);
+              await db.insert(genres).values({ name: safeName }).onDuplicateKeyUpdate({ set: { name: safeName } });
+              const [gRecord] = await db.select().from(genres).where(eq(genres.name, safeName)).limit(1);
+              if (gRecord) {
+                await db.insert(anime_genres).values({ anime_id: record.id, genre_id: gRecord.id }).onDuplicateKeyUpdate({ set: { anime_id: record.id } });
+              }
+            }
+          }
+        }
+
+        return savedAnime;
+      }
+      return [];
+    } catch (err: any) {
+      console.error(`[ScraperService.searchAnime Error]`, err.message);
+      return [];
+    }
+  },
+
+  backfillLegacyAnime: async (batchLimit = 3) => {
+    try {
+      const pendingAnime = await db
+        .select({ id: anime.id, endpoint: anime.endpoint, title: anime.title, status: anime.status })
+        .from(anime)
+        .where(sql`${anime.season} IS NULL`)
+        .orderBy(sql`CASE WHEN ${anime.status} = 'Ongoing' THEN 0 ELSE 1 END`, sql`${anime.updated_at} DESC`)
+        .limit(batchLimit);
+
+      if (pendingAnime.length === 0) return 0;
+
+      console.log(`[Gentle Backfill] Found ${pendingAnime.length} anime needing metadata sync...`);
+      for (const item of pendingAnime) {
+        console.log(`[Gentle Backfill] Syncing: "${item.title}" (${item.endpoint})`);
+        await ScraperService.scrapeAnimeDetail(item.endpoint, true);
+        await delay(12000); // 12 seconds gentle throttle
+      }
+      return pendingAnime.length;
+    } catch (err: any) {
+      console.warn('[Gentle Backfill Warning]:', err.message);
       return 0;
     }
   },

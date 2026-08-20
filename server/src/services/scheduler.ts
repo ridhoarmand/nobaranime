@@ -6,6 +6,8 @@ const SCHEDULES = {
   CHECK_NEW: '*/3 * * * *',
   // Ongoing scrape every hour at minute 0
   ONGOING_HOURLY: '0 * * * *',
+  // Gentle backfill for legacy anime every 15 minutes
+  GENTLE_BACKFILL: '*/15 * * * *',
   // Schedule (broadcast days) daily at 1 AM
   SCHEDULE: '0 1 * * *',
 };
@@ -30,6 +32,12 @@ export const Scheduler = {
       console.log('[Scheduler] Finished ongoing anime scrape.');
     });
 
+    // Every 15 minutes: Gentle backfill for legacy anime records
+    cron.schedule(SCHEDULES.GENTLE_BACKFILL, async () => {
+      if (!(await ScraperService.checkDomainStatus())) return;
+      await ScraperService.backfillLegacyAnime(3);
+    });
+
     // Daily: broadcast schedule update
     cron.schedule(SCHEDULES.SCHEDULE, async () => {
       if (!(await ScraperService.checkDomainStatus())) return;
@@ -41,9 +49,10 @@ export const Scheduler = {
     console.log('Scheduler initialized.');
     console.log('  - Real-time episode check: every 3 minutes (homepage & ongoing)');
     console.log('  - Ongoing scrape: every hour');
+    console.log('  - Gentle backfill: every 15 minutes (3 legacy anime)');
     console.log('  - Schedule update: daily 1 AM');
 
-    // Auto-bootstrap: Check if database is empty on startup, populate ongoing anime & schedule
+    // Auto-bootstrap & Initial Gentle Backfill
     setTimeout(async () => {
       try {
         const { db } = await import('../db/index.js');
@@ -57,6 +66,11 @@ export const Scheduler = {
           await ScraperService.scrapeCompletedAnime(1);
           await ScraperService.scrapeSchedule();
           console.log('[Scheduler] Initial bootstrap finished successfully!');
+        } else {
+          // Run one gentle backfill batch 10 seconds after server boot
+          setTimeout(async () => {
+            await ScraperService.backfillLegacyAnime(3);
+          }, 10000);
         }
       } catch (err: any) {
         console.warn('[Scheduler Bootstrap Warning]', err.message);

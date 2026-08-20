@@ -9,8 +9,11 @@ export interface Anime {  id: number;
   type?: string | null;
   studio?: string | null;
   duration?: string | null;
+  season?: string | null;
   release_date?: string | null;
   total_episodes?: number | null;
+  total_eps?: number | null;
+  available_eps?: number | null;
   broadcast_day?: string | null;
   synopsis?: string | null;
   created_at?: string;
@@ -21,6 +24,7 @@ export interface Anime {  id: number;
   genres?: Genre[];
   episodes?: Episode[];
   batches?: Batch[];
+  recommendations?: AnimeRecommendation[];
   latest_episode?: {
     episode_number: number;
     date: string;
@@ -33,6 +37,8 @@ export interface Episode {
   title: string;
   episode_number: number;
   endpoint: string;
+  credit?: string | null;
+  encoder?: string | null;
   date: string;
   created_at?: string;
   updated_at?: string;
@@ -41,6 +47,14 @@ export interface Episode {
   downloads?: DownloadCollection;
   prev_episode?: string | null;
   next_episode?: string | null;
+}
+
+export interface AnimeRecommendation {
+  id: number;
+  anime_id?: number;
+  title: string;
+  endpoint: string;
+  thumb?: string | null;
 }
 
 export interface Genre {
@@ -60,6 +74,7 @@ export interface Batch {
 export interface DownloadLink {
   title: string;
   url: string;
+  size?: string | null;
 }
 
 export interface Stream {
@@ -73,6 +88,7 @@ export interface Stream {
 export interface Download {
   provider: string;
   format: string;
+  size?: string | null;
   url: string;
 }
 

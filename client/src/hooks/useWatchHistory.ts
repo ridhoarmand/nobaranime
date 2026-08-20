@@ -139,7 +139,15 @@ export function useWatchHistory() {
   const getEpisodeProgress = useCallback(
     (animeSlug: string) => {
       const item = history.find((h) => h.animeSlug === animeSlug);
-      return item ? { progressPercent: item.progressPercent, completed: item.completed, lastSeenAt: item.lastSeenAt } : null;
+      return item
+        ? {
+            episodeSlug: item.episodeSlug,
+            episodeNumber: item.episodeNumber,
+            progressPercent: item.progressPercent,
+            completed: item.completed,
+            lastSeenAt: item.lastSeenAt,
+          }
+        : null;
     },
     [history]
   );

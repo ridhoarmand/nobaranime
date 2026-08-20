@@ -8,8 +8,8 @@ import { useWatchHistory } from '../hooks/useWatchHistory';
 import { useAnimePreferences } from '../hooks/useAnimePreferences';
 
 export function Home() {
-  const { history, user: watchUser } = useWatchHistory();
-  const { followed, user: prefUser, isLoaded } = useAnimePreferences();
+  const { history, isLoaded: watchHistoryLoaded } = useWatchHistory();
+  const { followed, isLoaded: prefLoaded } = useAnimePreferences();
 
   const { data: ongoing, isLoading: ongoingLoading } = useQuery({
     queryKey: ['latest-episodes', 1],
@@ -57,7 +57,7 @@ export function Home() {
       </div>
 
       <div className="mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-12 sm:pt-6 space-y-12 sm:space-y-16">
-        {watchUser && continueWatchingList.length > 0 && (
+        {watchHistoryLoaded && continueWatchingList.length > 0 && (
           <section>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-white flex items-center gap-2">
@@ -73,7 +73,7 @@ export function Home() {
                   className="group rounded-xl border border-amber-500/25 bg-zinc-900/70 p-3 hover:bg-zinc-800/80 transition-colors"
                 >
                   <div className="flex gap-3">
-                    <img src={item.animeThumb} alt={item.animeTitle} className="h-20 w-14 rounded-md object-cover shrink-0" loading="lazy" />
+                    <img src={item.animeThumb} alt={item.animeTitle} referrerPolicy="no-referrer" className="h-20 w-14 rounded-md object-cover shrink-0" loading="lazy" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-white line-clamp-2 group-hover:text-amber-200 transition-colors">{item.animeTitle}</p>
                       <p className="mt-1 text-xs text-zinc-400">Episode {item.episodeNumber}</p>
@@ -92,7 +92,7 @@ export function Home() {
           </section>
         )}
 
-        {prefUser && isLoaded && followedLatestReleases.length > 0 && (
+        {prefLoaded && followedLatestReleases.length > 0 && (
           <section>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-white flex items-center gap-2">

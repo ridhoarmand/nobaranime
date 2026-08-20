@@ -33,7 +33,7 @@ function getInitialDismissState(): { isDismissed: boolean } {
 export function usePWAInstall() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const initialState = getInitialDismissState();
-  const [isInstallable, setIsInstallable] = useState(!initialState.isDismissed);
+  const [isInstallable, setIsInstallable] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
   const isInstalledRef = useRef(false);
   const isPromptDismissedRef = useRef(initialState.isDismissed);

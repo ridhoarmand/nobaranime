@@ -1,6 +1,8 @@
-import { useState } from 'react';import { Schedule, ScheduleAnime } from '../../types/anime';
+import { useState } from 'react';
+import { Schedule, ScheduleAnime } from '../../types/anime';
 import { Link } from 'react-router-dom';
 import { Calendar } from 'lucide-react';
+import { ImageWithFallback } from '../ImageWithFallback';
 
 interface SchedulePageProps {
   schedule: Schedule;
@@ -39,21 +41,30 @@ export function AnimeSchedule({ schedule }: SchedulePageProps) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {activeSchedule.length > 0 ? (
-          activeSchedule.map((anime: ScheduleAnime) => (
-            <Link
-              key={anime.id}
-              to={`/anime/${anime.endpoint}`}
-              className="flex items-center gap-4 bg-zinc-900/50 p-4 rounded-xl border border-white/5 hover:border-red-600 hover:bg-zinc-900 transition-all group"
-            >
-              <div className="relative w-16 h-20 shrink-0">
-                <img src={anime.thumb} alt={anime.title} className="w-full h-full object-cover rounded-md shadow-lg group-hover:scale-105 transition-transform" />
-              </div>
-              <div>
-                <h3 className="font-bold text-white group-hover:text-red-500 transition-colors line-clamp-2">{anime.title}</h3>
-                <p className="text-xs text-gray-400 mt-1">{anime.total_episodes} Episodes</p>
-              </div>
-            </Link>
-          ))
+          activeSchedule.map((anime: ScheduleAnime) => {
+            const epCount = anime.total_episodes || (anime as any).total_eps || (anime as any).available_eps;
+            return (
+              <Link
+                key={anime.id}
+                to={`/anime/${anime.endpoint}`}
+                className="flex items-center gap-4 bg-zinc-900/50 p-4 rounded-xl border border-white/5 hover:border-red-600 hover:bg-zinc-900 transition-all group"
+              >
+                <div className="relative w-16 h-20 shrink-0 rounded-md overflow-hidden shadow-lg">
+                  <ImageWithFallback
+                    src={anime.thumb}
+                    alt={anime.title}
+                    containerClassName="w-full h-full"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                    fallbackText={anime.title}
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold text-white group-hover:text-red-500 transition-colors line-clamp-2">{anime.title}</h3>
+                  <p className="text-xs text-gray-400 mt-1">{epCount ? `${epCount} Episodes` : 'Ongoing'}</p>
+                </div>
+              </Link>
+            );
+          })
         ) : (
           <div className="col-span-full py-20 text-center text-gray-500">No anime scheduled for {activeDay}.</div>
         )}

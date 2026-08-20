@@ -7,6 +7,7 @@ import { ResolutionDownloadDropdown } from '../components/anime/ResolutionDownlo
 import { QuickEpisodeDrawer } from '../components/anime/QuickEpisodeDrawer';
 import { ChevronLeft, ChevronRight, Home, List, RefreshCw } from 'lucide-react';
 import { useWatchHistory } from '../hooks/useWatchHistory';
+import { ImageWithFallback } from '../components/ImageWithFallback';
 
 export function AnimeWatch() {
   const { slug, episode } = useParams<{ slug: string; episode: string }>();
@@ -58,13 +59,15 @@ export function AnimeWatch() {
 
     updateWatchProgress({
       animeSlug: slug,
-      animeTitle: data.anime?.title || 'Unknown',
+      animeTitle: data.anime?.title || data.title || 'Unknown',
       animeThumb: data.anime?.thumb || '',
+      episodeNumber: data.episode_number,
+      episodeSlug: episode || data.endpoint,
       progressPercent: 99,
       watchedDurationSec: 0,
       estimatedDurationSec: Math.round(estimatedMinutes * 60),
     });
-  }, [response, slug, updateWatchProgress]);
+  }, [response, slug, episode, updateWatchProgress]);
 
   const handleWatchProgress = useCallback((payload: { elapsedSeconds: number; inferredPercent: number; completed: boolean }) => {
     if (!response?.data || !slug) return;
@@ -74,13 +77,15 @@ export function AnimeWatch() {
 
     updateWatchProgress({
       animeSlug: slug,
-      animeTitle: data.anime?.title || 'Unknown',
+      animeTitle: data.anime?.title || data.title || 'Unknown',
       animeThumb: data.anime?.thumb || '',
+      episodeNumber: data.episode_number,
+      episodeSlug: episode || data.endpoint,
       progressPercent: payload.inferredPercent,
       watchedDurationSec: payload.elapsedSeconds,
       estimatedDurationSec: Math.round(estimatedMinutes * 60),
     });
-  }, [response, slug, updateWatchProgress]);
+  }, [response, slug, episode, updateWatchProgress]);
 
   if (isLoading) {
     return (
@@ -187,8 +192,14 @@ export function AnimeWatch() {
           <div className="space-y-6">
             <div className="bg-zinc-900/50 p-6 rounded-xl border border-white/5">
               <div className="flex gap-4">
-                <div className="relative w-20 h-28 shrink-0">
-                  <img src={animeInfo?.thumb || ''} alt={animeInfo?.title || ''} className="w-full h-full object-cover rounded-md shadow-lg" />
+                <div className="relative w-20 h-28 shrink-0 rounded-md overflow-hidden shadow-lg">
+                  <ImageWithFallback
+                    src={animeInfo?.thumb || ''}
+                    alt={animeInfo?.title || ''}
+                    containerClassName="w-full h-full"
+                    className="w-full h-full object-cover"
+                    fallbackText={animeInfo?.title}
+                  />
                 </div>
                 <div>
                   <h3 className="font-bold line-clamp-2 mb-1">
@@ -197,6 +208,16 @@ export function AnimeWatch() {
                     </Link>
                   </h3>
                   <p className="text-xs text-gray-400">Released: {data.date}</p>
+                  {(data.credit || data.encoder) && (
+                    <div className="mt-2 text-[11px] space-y-0.5 text-zinc-300 bg-zinc-800/60 p-2 rounded-lg border border-white/5">
+                      {data.credit && (
+                        <p className="truncate"><span className="text-zinc-400 font-semibold">Fansub:</span> {data.credit}</p>
+                      )}
+                      {data.encoder && (
+                        <p className="truncate"><span className="text-zinc-400 font-semibold">Encoder:</span> {data.encoder}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

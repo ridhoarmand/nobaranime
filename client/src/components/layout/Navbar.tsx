@@ -106,7 +106,7 @@ export function Navbar() {
           </div>
 
           <div className="flex items-center gap-3" ref={searchContainerRef}>
-            <form onSubmit={handleSearchSubmit} className="hidden lg:block relative">
+            <form onSubmit={handleSearchSubmit} className="hidden md:block relative">
               <div className="relative">
                 <input
                   type="text"
@@ -114,7 +114,7 @@ export function Navbar() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onFocus={() => searchQuery.trim().length >= 2 && setShowDropdown(true)}
                   placeholder="Cari anime..."
-                  className="w-56 xl:w-72 bg-zinc-900 border border-zinc-700 rounded-full px-4 py-2 pl-10 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-transparent transition"
+                  className="w-48 lg:w-64 xl:w-72 bg-zinc-900 border border-zinc-700 rounded-full px-4 py-2 pl-10 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-transparent transition"
                 />
                 {isSearching ? (
                   <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-red-500 animate-spin" />
@@ -177,7 +177,7 @@ export function Navbar() {
               )}
             </form>
 
-            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden p-2 text-gray-300 hover:text-white transition" aria-label="Search">
+            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="md:hidden p-2 text-gray-300 hover:text-white transition" aria-label="Search">
               <Search className="w-5 h-5" />
             </button>
 

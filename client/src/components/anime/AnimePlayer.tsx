@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Stream } from '../../types/anime';
-import { AlertCircle, Shield, ShieldAlert, ShieldOff, ShieldCheck, Settings } from 'lucide-react';
+import { AlertCircle, Shield, ShieldAlert, ShieldOff, ShieldCheck, Settings, Maximize, Minimize } from 'lucide-react';
 import { StreamQualityDropdown } from './StreamQualityDropdown';
 import { getSandboxConfig, generateSandboxAttribute, getAdRiskLevel } from '../../lib/playerConfig';
 
@@ -256,15 +256,21 @@ export function AnimePlayer({ streams, title, estimatedDurationMinutes, onPlayba
     );
   }
 
+  const streamUrl = currentStream?.url
+    ? currentStream.url.startsWith('//')
+      ? `https:${currentStream.url}`
+      : currentStream.url
+    : '';
+
   return (
     <div className="space-y-4">
       <div className="relative aspect-video w-full bg-black rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 group" onClick={handlePlayerInteraction} ref={playerRef} onDoubleClick={handleFullscreen}>
-        {currentStream ? (
+        {currentStream && streamUrl ? (
           <>
             {needsSandbox ? (
               <iframe
                 key={`stream-${currentStream.id}`}
-                src={currentStream.url}
+                src={streamUrl}
                 title={title}
                 className="w-full h-full border-0 absolute inset-0"
                 allowFullScreen
@@ -274,7 +280,7 @@ export function AnimePlayer({ streams, title, estimatedDurationMinutes, onPlayba
             ) : (
               <iframe
                 key={`stream-${currentStream.id}`}
-                src={currentStream.url}
+                src={streamUrl}
                 title={title}
                 className="w-full h-full border-0 absolute inset-0"
                 allowFullScreen
@@ -320,14 +326,26 @@ export function AnimePlayer({ streams, title, estimatedDurationMinutes, onPlayba
             <span className="text-zinc-300 capitalize">{adRiskInfo.level} ads risk</span>
           </div>
 
-          <div className="relative">
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => setShowSettings(!showSettings)}
-              className="bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white p-2 rounded-lg transition-colors flex items-center gap-2"
+              type="button"
+              onClick={handleFullscreen}
+              className="bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white px-3 py-2 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-semibold"
+              title={isFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh'}
             >
-              <Settings className="w-4 h-4" />
-              <span className="text-xs font-semibold">Settings</span>
+              {isFullscreen ? <Minimize className="w-4 h-4 text-green-400" /> : <Maximize className="w-4 h-4" />}
+              <span className="hidden sm:inline">{isFullscreen ? 'Kecilkan' : 'Layar Penuh'}</span>
             </button>
+
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowSettings(!showSettings)}
+                className="bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white p-2 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <Settings className="w-4 h-4" />
+                <span className="text-xs font-semibold">Settings</span>
+              </button>
 
             {showSettings && (
               <>
@@ -428,6 +446,7 @@ export function AnimePlayer({ streams, title, estimatedDurationMinutes, onPlayba
                 </div>
               </>
             )}
+            </div>
           </div>
         </div>
       )}

@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
 import { ResolutionDownloadDropdown } from '../components/anime/ResolutionDownloadDropdown';
 import { AnimeApi } from '../lib/api';
-import { Play, Calendar, Star, Info, Hash, Clock, MonitorPlay, Download, Tv, Check, Circle, Heart, Bell, RefreshCw, Search as SearchIcon, ArrowUpDown } from 'lucide-react';
+import { Play, Calendar, Star, Info, Hash, Clock, MonitorPlay, Download, Tv, Check, Circle, Heart, Bell, RefreshCw, Search as SearchIcon, ArrowUpDown, Film, Building2, Sparkles } from 'lucide-react';
 import { ImageWithFallback } from '../components/ImageWithFallback';
 import { useWatchHistory } from '../hooks/useWatchHistory';
 import { useAnimePreferences } from '../hooks/useAnimePreferences';
@@ -50,8 +50,8 @@ export function AnimeDetail() {
   const [episodeSearchQuery, setEpisodeSearchQuery] = useState('');
   const [episodeSortOrder, setEpisodeSortOrder] = useState<'asc' | 'desc'>('asc');
 
-  const { getWatchedEpisodesForAnime, getEpisodeProgress, getLatestWatchedForAnime, user: watchUser } = useWatchHistory();
-  const { isFollowed, isLiked, toggleFollow, toggleLike, user: prefUser, isLoaded } = useAnimePreferences();
+  const { getWatchedEpisodesForAnime, getEpisodeProgress, getLatestWatchedForAnime } = useWatchHistory();
+  const { isFollowed, isLiked, toggleFollow, toggleLike, isLoaded } = useAnimePreferences();
   const {
     data: response,
     isLoading,
@@ -60,11 +60,10 @@ export function AnimeDetail() {
     queryKey: ['anime', slug],
     queryFn: () => AnimeApi.getDetail(slug!),
     enabled: !!slug,
-    gcTime: 0, // Force clear cache so new episodes won't be missed on re-visit
+    gcTime: 0,
   });
 
-  // Automatically trigger background re-scrape & purge when opening detail page
-  useState(() => {
+  useEffect(() => {
     if (slug) {
       AnimeApi.syncAnime(slug)
         .then(() => {
@@ -72,7 +71,7 @@ export function AnimeDetail() {
         })
         .catch(() => {});
     }
-  });
+  }, [slug, queryClient]);
 
   const handleSyncData = async () => {
     if (!slug || isSyncing) return;
@@ -100,15 +99,21 @@ export function AnimeDetail() {
 
   if (isError || !response?.data) {
     return (
-      <main className="bg-black min-h-screen pt-24 pb-20 flex justify-center items-center text-white">
-        <h2>Anime not found</h2>
+      <main className="bg-black min-h-screen pt-24 pb-20 flex justify-center items-center text-center">
+        <div>
+          <h2 className="text-2xl font-bold text-white mb-2">Anime Tidak Ditemukan</h2>
+          <p className="text-gray-400 mb-6">Mungkin URL salah atau data belum disinkronkan.</p>
+          <Link to="/" className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 rounded-xl font-bold transition">
+            Kembali ke Beranda
+          </Link>
+        </div>
       </main>
     );
   }
 
   const data = response.data;
-  const followed = !!slug && isFollowed(slug);
-  const liked = !!slug && isLiked(slug);
+  const followed = slug ? isFollowed(slug) : false;
+  const liked = slug ? isLiked(slug) : false;
   const watchedEpisodeNumbers = slug ? getWatchedEpisodesForAnime(slug) : [];
   const latestWatchedEpisode = watchedEpisodeNumbers.length > 0 ? Math.max(...watchedEpisodeNumbers) : 0;
   const latestProgressEntry = slug ? getLatestWatchedForAnime(slug) : null;
@@ -124,8 +129,8 @@ export function AnimeDetail() {
   const shouldResumeCurrentEpisode = !!latestProgressEntry && !latestProgressEntry.completed;
 
   return (
-    <main className="bg-black min-h-screen text-white pb-20">
-      <div className="relative h-[25vh] sm:h-[30vh] md:h-[40vh] w-full overflow-hidden">
+    <main className="bg-black text-white min-h-screen pb-20">
+      <div className="relative h-64 sm:h-80 md:h-[420px] w-full overflow-hidden group">
         <ImageWithFallback
           src={data.thumb}
           alt={data.title}
@@ -141,12 +146,17 @@ export function AnimeDetail() {
           <div className="w-48 sm:w-56 md:w-1/4 shrink-0 -mt-36 sm:-mt-40 md:mt-0 relative z-20">
             <div className="aspect-[3/4] rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 relative">
               <ImageWithFallback src={data.thumb} alt={data.title} containerClassName="w-full h-full" className="w-full h-full object-cover" fallbackText={data.title} />
-              <div className="absolute top-2 left-2 md:top-4 md:left-4">
+              <div className="absolute top-2 left-2 md:top-4 md:left-4 flex flex-col gap-1.5 items-start">
                 <span
                   className={`px-2 py-0.5 md:px-3 md:py-1 text-[10px] md:text-xs font-bold uppercase rounded-md shadow-sm ${data.status === 'Ongoing' ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'}`}
                 >
                   {data.status}
                 </span>
+                {(data.available_eps || data.total_eps) && (
+                  <span className="px-2 py-0.5 md:px-2.5 md:py-0.5 text-[9px] md:text-[10px] font-bold bg-black/80 backdrop-blur-sm text-zinc-200 border border-white/10 rounded-md shadow-sm">
+                    {data.available_eps ? `${data.available_eps}${data.total_eps ? ` / ${data.total_eps}` : ''} Eps` : `${data.total_eps} Eps`}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -167,7 +177,7 @@ export function AnimeDetail() {
                   {isSyncing ? 'Syncing...' : 'Sync Data Otakudesu'}
                 </button>
 
-                {(watchUser || prefUser) && isLoaded && (
+                {isLoaded && (
                   <>
                     <button
                       type="button"
@@ -219,15 +229,16 @@ export function AnimeDetail() {
               </div>
               {data.synopsis && data.synopsis.length > 250 && (
                 <button
+                  type="button"
                   onClick={() => setIsSynopsisExpanded(!isSynopsisExpanded)}
-                  className="mt-2 text-red-500 hover:text-red-400 text-xs md:text-sm font-bold transition-colors w-full md:w-auto text-center md:text-left"
+                  className="mt-2 text-xs text-red-400 hover:text-red-300 font-semibold focus:outline-none"
                 >
                   {isSynopsisExpanded ? 'Sembunyikan' : 'Baca Selengkapnya...'}
                 </button>
               )}
             </div>
 
-            <div className="grid grid-cols-3 md:grid-cols-5 gap-2 md:gap-3 text-left">
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-8 gap-2 md:gap-3 text-left">
               <div className="bg-zinc-900/50 p-2 md:p-3 rounded-lg border border-white/5 hover:border-red-500/30 transition-colors">
                 <div className="flex items-center gap-1.5 text-gray-400 mb-1">
                   <Star className="w-3.5 h-3.5 text-yellow-500" />
@@ -244,10 +255,31 @@ export function AnimeDetail() {
               </div>
               <div className="bg-zinc-900/50 p-2 md:p-3 rounded-lg border border-white/5 hover:border-red-500/30 transition-colors">
                 <div className="flex items-center gap-1.5 text-gray-400 mb-1">
+                  <Film className="w-3.5 h-3.5 text-amber-500" />
+                  <span className="text-[9px] md:text-[10px] uppercase font-bold tracking-wider">Tipe</span>
+                </div>
+                <p className="text-xs md:text-sm font-semibold truncate">{data.type || 'TV'}</p>
+              </div>
+              <div className="bg-zinc-900/50 p-2 md:p-3 rounded-lg border border-white/5 hover:border-red-500/30 transition-colors">
+                <div className="flex items-center gap-1.5 text-gray-400 mb-1">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-[9px] md:text-[10px] uppercase font-bold tracking-wider">Musim</span>
+                </div>
+                <p className="text-xs md:text-sm font-semibold truncate">{data.season || 'N/A'}</p>
+              </div>
+              <div className="bg-zinc-900/50 p-2 md:p-3 rounded-lg border border-white/5 hover:border-red-500/30 transition-colors">
+                <div className="flex items-center gap-1.5 text-gray-400 mb-1">
                   <MonitorPlay className="w-3.5 h-3.5 text-green-500" />
                   <span className="text-[9px] md:text-[10px] uppercase font-bold tracking-wider">Studio</span>
                 </div>
                 <p className="text-xs md:text-sm font-semibold truncate">{data.studio || 'N/A'}</p>
+              </div>
+              <div className="bg-zinc-900/50 p-2 md:p-3 rounded-lg border border-white/5 hover:border-red-500/30 transition-colors">
+                <div className="flex items-center gap-1.5 text-gray-400 mb-1">
+                  <Building2 className="w-3.5 h-3.5 text-cyan-500" />
+                  <span className="text-[9px] md:text-[10px] uppercase font-bold tracking-wider">Produser</span>
+                </div>
+                <p className="text-xs md:text-sm font-semibold truncate">{data.producer || 'N/A'}</p>
               </div>
               <div className="bg-zinc-900/50 p-2 md:p-3 rounded-lg border border-white/5 hover:border-red-500/30 transition-colors">
                 <div className="flex items-center gap-1.5 text-gray-400 mb-1">
@@ -256,7 +288,7 @@ export function AnimeDetail() {
                 </div>
                 <p className="text-xs md:text-sm font-semibold truncate">{data.release_date || 'N/A'}</p>
               </div>
-              <div className="bg-zinc-900/50 p-2 md:p-3 rounded-lg border border-white/5 hover:border-red-500/30 transition-colors col-span-2 md:col-span-1">
+              <div className="bg-zinc-900/50 p-2 md:p-3 rounded-lg border border-white/5 hover:border-red-500/30 transition-colors col-span-2 sm:col-span-1">
                 <div className="flex items-center gap-1.5 text-gray-400 mb-1">
                   <Tv className="w-3.5 h-3.5 text-pink-500" />
                   <span className="text-[9px] md:text-[10px] uppercase font-bold tracking-wider">Rilis Hari</span>
@@ -340,7 +372,10 @@ export function AnimeDetail() {
                     const allWatchedEps = slug ? getWatchedEpisodesForAnime(slug) : [];
                     const watched = allWatchedEps.includes(episodeNum);
                     const progressEntry = slug ? getEpisodeProgress(slug) : null;
-                    const inProgress = !!progressEntry && !progressEntry.completed && progressEntry.progressPercent > 0;
+                    const inProgress = !!progressEntry && 
+                      !progressEntry.completed && 
+                      progressEntry.progressPercent > 0 &&
+                      (progressEntry.episodeSlug === ep.endpoint || Number(progressEntry.episodeNumber) === episodeNum);
                     return (
                       <Link
                         key={ep.id}
@@ -386,6 +421,39 @@ export function AnimeDetail() {
                 <div className="grid gap-3">
                   {data.batches.map(( batch: Batch) => (
                     <BatchItem key={batch.endpoint || batch.id} batch={batch} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {data.recommendations && data.recommendations.length > 0 && (
+              <div className="space-y-4 pt-6 border-t border-white/5 text-left">
+                <h3 className="text-xl md:text-2xl font-bold flex items-center gap-2 text-white">
+                  <Sparkles className="w-6 h-6 text-yellow-500" />
+                  Rekomendasi Anime Serupa
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                  {data.recommendations.map((rec) => (
+                    <Link
+                      key={rec.endpoint || rec.id}
+                      to={`/anime/${rec.endpoint}`}
+                      className="group block bg-zinc-900/60 rounded-xl overflow-hidden border border-white/5 hover:border-yellow-500/40 transition-all duration-300"
+                    >
+                      <div className="aspect-[3/4] relative overflow-hidden">
+                        <ImageWithFallback
+                          src={rec.thumb || ''}
+                          alt={rec.title}
+                          containerClassName="w-full h-full"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          fallbackText={rec.title}
+                        />
+                      </div>
+                      <div className="p-2.5">
+                        <h4 className="text-xs font-semibold text-white line-clamp-2 group-hover:text-yellow-400 transition-colors">
+                          {rec.title}
+                        </h4>
+                      </div>
+                    </Link>
                   ))}
                 </div>
               </div>

@@ -5,7 +5,7 @@ import { existsSync } from 'fs';
 import { ScraperService } from './services/scraper.js';
 import { Scheduler } from './services/scheduler.js';
 import { db, runAutoMigrations } from './db/index.js';
-import { anime, episodes, batches, genres, anime_genres, streams, downloads, batch_downloads } from './db/schema.js';
+import { anime, episodes, batches, genres, anime_genres, streams, downloads, batch_downloads, recommendations } from './db/schema.js';
 import { eq, desc, asc, sql, and, inArray } from 'drizzle-orm';
 
 const app = new Hono();
@@ -27,6 +27,10 @@ app.onError((err, c) => {
 });
 
 const PER_PAGE = 25;
+
+// Rate-limiting sync cooldown map
+const lastSyncMap = new Map<string, number>();
+const SYNC_COOLDOWN_MS = 60 * 1000; // 1 minute cooldown per anime/episode
 
 // ── Helper ──
 
@@ -352,79 +356,121 @@ api.get('/completed', async (c) => {
 // ── Search ──
 
 api.get('/search', async (c) => {
-  const q = c.req.query('q');
-  const limitParam = parseInt(c.req.query('limit') || '50');
-  if (!q) return c.json({ status: false, message: 'Query parameter "q" is required' }, 400);
+  try {
+    const q = c.req.query('q');
+    const limitParam = parseInt(c.req.query('limit') || '50');
+    if (!q) return c.json({ status: false, message: 'Query parameter "q" is required' }, 400);
 
-  const data = await db
-    .select()
-    .from(anime)
-    .where(sql`LOWER(${anime.title}) LIKE LOWER(${`%${q}%`})`)
-    .orderBy(desc(anime.updated_at))
-    .limit(limitParam);
+    let data = await db
+      .select()
+      .from(anime)
+      .where(sql`LOWER(${anime.title}) LIKE LOWER(${'%' + q + '%'})`)
+      .orderBy(desc(anime.updated_at))
+      .limit(limitParam);
 
-  return jsonOk(c, data);
+    // Live search fallback if not found in local DB
+    if (data.length === 0) {
+      console.log(`[API /search] No anime found in DB for "${q}", attempting live search...`);
+      await ScraperService.searchAnime(q);
+      data = await db
+        .select()
+        .from(anime)
+        .where(sql`LOWER(${anime.title}) LIKE LOWER(${'%' + q + '%'})`)
+        .orderBy(desc(anime.updated_at))
+        .limit(limitParam);
+    }
+
+    return jsonOk(c, data);
+  } catch (err: any) {
+    console.error('[API /search Error]', err);
+    return c.json({ status: false, message: err.message || 'Search failed' }, 500);
+  }
 });
 
 // ── Anime Detail ──
 
 api.get('/anime/:endpoint', async (c) => {
-  const endpoint = c.req.param('endpoint');
+  try {
+    const endpoint = c.req.param('endpoint');
 
-  // 1. Get anime from DB
-  let [animeData] = await db.select().from(anime).where(eq(anime.endpoint, endpoint)).limit(1);
+    // 1. Get anime from DB
+    let [animeData] = await db.select().from(anime).where(eq(anime.endpoint, endpoint)).limit(1);
 
-  // On-Demand Auto Scrape if not in DB
-  if (!animeData) {
-    console.log(`[On-Demand] Anime "${endpoint}" not found in DB. Scraping live...`);
-    const scraped = await ScraperService.scrapeAnimeDetail(endpoint);
-    if (scraped) {
-      [animeData] = await db.select().from(anime).where(eq(anime.endpoint, endpoint)).limit(1);
+    // On-Demand Auto Scrape if not in DB
+    if (!animeData) {
+      console.log(`[On-Demand] Anime "${endpoint}" not found in DB. Scraping live...`);
+      const scraped = await ScraperService.scrapeAnimeDetail(endpoint);
+      if (scraped) {
+        [animeData] = await db.select().from(anime).where(eq(anime.endpoint, endpoint)).limit(1);
+      }
     }
+
+    if (!animeData) return json404(c, 'Anime not found');
+
+    // 2. Get episodes
+    const episodeList = await db
+      .select({
+        id: episodes.id,
+        title: episodes.title,
+        episode_number: episodes.episode_number,
+        endpoint: episodes.endpoint,
+        date: episodes.date,
+      })
+      .from(episodes)
+      .where(eq(episodes.anime_id, animeData.id))
+      .orderBy(asc(episodes.episode_number));
+
+    // 3. Get genres
+    const genreList = await db
+      .select({
+        id: genres.id,
+        name: genres.name,
+      })
+      .from(genres)
+      .innerJoin(anime_genres, eq(genres.id, anime_genres.genre_id))
+      .where(eq(anime_genres.anime_id, animeData.id));
+
+    // 4. Get batch downloads
+    const batchList = await db
+      .select({
+        id: batches.id,
+        title: batches.title,
+        endpoint: batches.endpoint,
+        created_at: batches.created_at,
+      })
+      .from(batches)
+      .where(eq(batches.anime_id, animeData.id));
+
+    // 5. Get recommendations
+    const recommendationList = await db
+      .select({
+        id: recommendations.id,
+        title: recommendations.title,
+        endpoint: recommendations.endpoint,
+        thumb: recommendations.thumb,
+      })
+      .from(recommendations)
+      .where(eq(recommendations.anime_id, animeData.id));
+
+    // Lazy Gentle Sync if missing season or recommendations
+    if (animeData.season === null || recommendationList.length === 0) {
+      setTimeout(() => {
+        ScraperService.scrapeAnimeDetail(endpoint, true).catch(() => {});
+      }, 500);
+    }
+
+    return jsonOk(c, {
+      ...animeData,
+      total_episodes: animeData.total_eps,
+      genres: genreList,
+      episodes: episodeList,
+      batches: batchList,
+      recommendations: recommendationList,
+    });
+  } catch (err: any) {
+    console.error('[API /anime/:endpoint Error]', err);
+    return c.json({ status: false, message: err.message || 'Failed to load anime details' }, 500);
   }
-
-  if (!animeData) return json404(c, 'Anime not found');
-
-  // 2. Get episodes
-  const episodeList = await db
-    .select({
-      id: episodes.id,
-      title: episodes.title,
-      episode_number: episodes.episode_number,
-      endpoint: episodes.endpoint,
-      date: episodes.date,
-    })
-    .from(episodes)
-    .where(eq(episodes.anime_id, animeData.id))
-    .orderBy(asc(episodes.episode_number));
-
-  // 3. Get genres
-  const genreList = await db
-    .select({
-      id: genres.id,
-      name: genres.name,
-    })
-    .from(genres)
-    .innerJoin(anime_genres, eq(genres.id, anime_genres.genre_id))
-    .where(eq(anime_genres.anime_id, animeData.id));
-
-  // 4. Get batch downloads
-  const batchList = await db
-    .select({
-      id: batches.id,
-      title: batches.title,
-      endpoint: batches.endpoint,
-      upload_date: batches.upload_date,
-    })
-    .from(batches)
-    .where(eq(batches.anime_id, animeData.id));
-
-  return jsonOk(c, {
-    ...animeData,
-    genres: genreList,
-    episodes: episodeList,
-    batches: batchList,
-  });
 });
 
 // ── Episode Detail ──
@@ -500,6 +546,7 @@ api.get('/episode/:endpoint', async (c) => {
       provider: downloads.provider,
       resolution: downloads.resolution,
       format: downloads.format,
+      size: downloads.size,
       url: downloads.url,
     })
     .from(downloads)
@@ -513,8 +560,16 @@ api.get('/episode/:endpoint', async (c) => {
     grouped_downloads[key].push({
       provider: dl.provider,
       format: dl.format,
+      size: dl.size,
       url: dl.url,
     });
+  }
+
+  // Lazy Gentle Sync if missing credit or size
+  if (!episodeData.credit) {
+    setTimeout(() => {
+      ScraperService.scrapeAnimeEpisode(endpoint, episodeData.episode_number || 0).catch(() => {});
+    }, 500);
   }
 
   // Get prev/next episode
@@ -546,7 +601,14 @@ api.get('/episode/:endpoint', async (c) => {
 api.get('/batch/:endpoint', async (c) => {
   const endpoint = c.req.param('endpoint');
 
-  const [batchData] = await db.select().from(batches).where(eq(batches.endpoint, endpoint)).limit(1);
+  let [batchData] = await db.select().from(batches).where(eq(batches.endpoint, endpoint)).limit(1);
+  if (!batchData) {
+    console.log(`[API /batch] Batch not in DB, live scraping: ${endpoint}`);
+    const scraped = await ScraperService.scrapeBatchEpisode(endpoint, 0);
+    if (scraped) {
+      [batchData] = await db.select().from(batches).where(eq(batches.endpoint, endpoint)).limit(1);
+    }
+  }
   if (!batchData) return json404(c, 'Batch not found');
 
   // Get anime info
@@ -561,6 +623,7 @@ api.get('/batch/:endpoint', async (c) => {
       provider: batch_downloads.provider,
       resolution: batch_downloads.resolution,
       format: batch_downloads.format,
+      size: batch_downloads.size,
       url: batch_downloads.url,
     })
     .from(batch_downloads)
@@ -574,6 +637,7 @@ api.get('/batch/:endpoint', async (c) => {
     grouped_downloads[key].push({
       provider: dl.provider,
       format: dl.format,
+      size: dl.size,
       url: dl.url,
     });
   }
@@ -598,8 +662,12 @@ api.get('/genres/:genre', async (c) => {
   const page = parseInt(c.req.query('page') || '1');
   const { limit, offset } = paginate(page);
 
-  // Find genre
-  const [genre] = await db.select().from(genres).where(eq(genres.name, genreName)).limit(1);
+  // Find genre (case-insensitive)
+  const [genre] = await db
+    .select()
+    .from(genres)
+    .where(sql`LOWER(${genres.name}) = LOWER(${genreName})`)
+    .limit(1);
   if (!genre) return json404(c, 'Genre not found');
 
   // Get anime IDs for this genre
@@ -623,7 +691,7 @@ api.get('/genres/:genre', async (c) => {
 // ── Schedule ──
 
 api.get('/schedule', async (c) => {
-  const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+  const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu', 'Random'];
   const schedule: Record<string, any[]> = {};
   let totalItems = 0;
 
@@ -635,6 +703,8 @@ api.get('/schedule', async (c) => {
         endpoint: anime.endpoint,
         thumb: anime.thumb,
         total_eps: anime.total_eps,
+        total_episodes: anime.total_eps,
+        available_eps: anime.available_eps,
       })
       .from(anime)
       .where(and(eq(anime.broadcast_day, day), eq(anime.status, 'Ongoing')))
@@ -655,6 +725,8 @@ api.get('/schedule', async (c) => {
           endpoint: anime.endpoint,
           thumb: anime.thumb,
           total_eps: anime.total_eps,
+          total_episodes: anime.total_eps,
+          available_eps: anime.available_eps,
         })
         .from(anime)
         .where(and(eq(anime.broadcast_day, day), eq(anime.status, 'Ongoing')))

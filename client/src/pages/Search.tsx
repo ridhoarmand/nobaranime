@@ -71,6 +71,7 @@ export function Search() {
                 <SearchIcon className="h-5 w-5 text-gray-500" />
               </div>
               <input
+                key={query}
                 type="text"
                 placeholder="Search anime..."
                 defaultValue={query}

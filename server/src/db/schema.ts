@@ -13,6 +13,7 @@ export const anime = mysqlTable('anime', {
   type: varchar('type', { length: 50 }),
   studio: varchar('studio', { length: 255 }),
   duration: varchar('duration', { length: 50 }),
+  season: varchar('season', { length: 50 }),
   release_date: date('release_date', { mode: 'string' }),
   available_eps: int('available_eps').default(0),
   total_eps: int('total_eps'),
@@ -30,6 +31,8 @@ export const episodes = mysqlTable('episodes', {
   title: varchar('title', { length: 255 }),
   episode_number: float('episode_number'),
   endpoint: varchar('endpoint', { length: 255 }).unique().notNull(),
+  credit: varchar('credit', { length: 100 }),
+  encoder: varchar('encoder', { length: 100 }),
   date: datetime('date', { mode: 'string' }),
   created_at: timestamp('created_at').defaultNow(),
   updated_at: timestamp('updated_at').defaultNow().onUpdateNow(),
@@ -55,6 +58,7 @@ export const downloads = mysqlTable('downloads', {
   provider: varchar('provider', { length: 100 }),
   resolution: varchar('resolution', { length: 50 }),
   format: varchar('format', { length: 20 }),
+  size: varchar('size', { length: 50 }),
   url: text('url').notNull(),
   created_at: timestamp('created_at').defaultNow(),
 });
@@ -76,7 +80,19 @@ export const batch_downloads = mysqlTable('batch_downloads', {
   provider: varchar('provider', { length: 100 }),
   resolution: varchar('resolution', { length: 50 }),
   format: varchar('format', { length: 20 }),
+  size: varchar('size', { length: 50 }),
   url: text('url').notNull(),
+  created_at: timestamp('created_at').defaultNow(),
+});
+
+export const recommendations = mysqlTable('recommendations', {
+  id: int('id').primaryKey().autoincrement(),
+  anime_id: int('anime_id')
+    .references(() => anime.id)
+    .notNull(),
+  title: varchar('title', { length: 255 }).notNull(),
+  endpoint: varchar('endpoint', { length: 255 }).notNull(),
+  thumb: text('thumb'),
   created_at: timestamp('created_at').defaultNow(),
 });
 
@@ -110,6 +126,11 @@ export const animeRelations = relations(anime, ({ many }) => ({
   episodes: many(episodes),
   batches: many(batches),
   anime_genres: many(anime_genres),
+  recommendations: many(recommendations),
+}));
+
+export const recommendationsRelations = relations(recommendations, ({ one }) => ({
+  anime: one(anime, { fields: [recommendations.anime_id], references: [anime.id] }),
 }));
 
 export const episodesRelations = relations(episodes, ({ one, many }) => ({

@@ -60,7 +60,7 @@ export default defineConfig({
           {
             // Prefer fresh API responses so new episodes appear immediately
             urlPattern: ({ url }) => {
-              return url.hostname === 'anime-api.idho.eu.org' || url.hostname === 'api.supabase.co';
+              return url.pathname.startsWith('/api');
             },
             handler: 'NetworkFirst',
             options: {
