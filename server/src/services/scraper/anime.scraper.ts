@@ -333,7 +333,10 @@ export const scrapeAnimeDetail = async (endpointStr: string, forceRescrape = fal
                     details['judul'] ||
                     endpointStr.replace(/-/g, ' ');
       const synopsis = sinopsisArray.join('\n');
-      const status = details['status']?.includes('Ongoing') ? 'Ongoing' : 'Completed';
+      const rawStatus = (details['status'] || '').toLowerCase();
+      const isOngoing = rawStatus.includes('ongoing') || rawStatus.includes('berjalan');
+      const isCompleted = rawStatus.includes('completed') || rawStatus.includes('tamat') || rawStatus.includes('selesai');
+      const status: 'Ongoing' | 'Completed' = isOngoing ? 'Ongoing' : (isCompleted ? 'Completed' : (details['status']?.includes('Ongoing') ? 'Ongoing' : 'Completed'));
 
       const japanese_title = details['japanese'];
       const score = parseFloat(details['skor']);
@@ -341,7 +344,7 @@ export const scrapeAnimeDetail = async (endpointStr: string, forceRescrape = fal
       const type = details['tipe'];
       const studio = details['studio'];
       const duration = details['durasi'];
-      const season = details['musim'] || details['season'] || details['musim tayang'] || null;
+      const season = details['musim'] || details['season'] || details['musim tayang'] || 'Unknown';
 
       let release_date = null;
       if (details['tanggal rilis']) {
@@ -501,7 +504,7 @@ export const scrapeAnimeDetail = async (endpointStr: string, forceRescrape = fal
             if (existingEp) {
               const [streamRow] = await db.select({ count: sql<number>`COUNT(*)` }).from(streams).where(eq(streams.episode_id, existingEp.id));
               const [downloadRow] = await db.select({ count: sql<number>`COUNT(*)` }).from(downloads).where(eq(downloads.episode_id, existingEp.id));
-              if (Number(streamRow?.count || 0) > 0 && Number(downloadRow?.count || 0) > 0) continue;
+              if (Number(streamRow?.count || 0) > 0 || Number(downloadRow?.count || 0) > 0) continue;
             }
           }
           episodeTasks.push(() => scrapeEpisode(episode_endpoint, animeId, { episode_title, episode_date, episode_number }));
@@ -522,9 +525,9 @@ export const scrapeAnimeDetail = async (endpointStr: string, forceRescrape = fal
       }
 
       const available_eps = (await db.query.episodes.findMany({ where: eq(episodes.anime_id, animeId) })).length;
-      const finalUpdateData: any = { total_eps, available_eps };
+      const finalUpdateData: any = { total_eps, available_eps, status };
       const lastEpisode = episodeElements.length > 0 ? $(episodeElements[0]).find('span > a').text() : '';
-      if (lastEpisode && lastEpisode.includes('(End)')) {
+      if (lastEpisode && /\((end|tamat|selesai)\)/i.test(lastEpisode)) {
         finalUpdateData.status = 'Completed';
         console.log(`  → Marked as Completed (${available_eps} eps)`);
       }

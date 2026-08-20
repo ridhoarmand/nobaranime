@@ -123,7 +123,8 @@ animeRoute.get('/latest-episodes', async (c) => {
       last_episode_slug: sql`(SELECT ${episodes.endpoint} FROM ${episodes} WHERE ${episodes.anime_id} = ${anime.id} ORDER BY ${episodes.episode_number} DESC LIMIT 1)`.as('last_episode_slug'),
     })
     .from(anime)
-    .innerJoin(subquery, eq(anime.id, sql`ep.anime_id`))
+    .leftJoin(subquery, eq(anime.id, sql`ep.anime_id`))
+    .where(sql`${anime.status} = 'Ongoing' OR ep.anime_id IS NOT NULL`)
     .orderBy(
       desc(sql`ep.last_episode_created_at`),
       desc(anime.created_at),
@@ -135,7 +136,8 @@ animeRoute.get('/latest-episodes', async (c) => {
   const [countResult] = await db
     .select({ count: sql<number>`COUNT(*)` })
     .from(anime)
-    .innerJoin(subquery, eq(anime.id, sql`ep.anime_id`));
+    .leftJoin(subquery, eq(anime.id, sql`ep.anime_id`))
+    .where(sql`${anime.status} = 'Ongoing' OR ep.anime_id IS NOT NULL`);
 
   const total = Number(countResult.count);
 
@@ -320,7 +322,7 @@ animeRoute.get('/anime/:endpoint', async (c) => {
 
     if (animeData.season === null || recommendationList.length === 0) {
       setTimeout(() => {
-        ScraperService.scrapeAnimeDetail(endpoint, true).catch(() => {});
+        ScraperService.scrapeAnimeDetail(endpoint, false, false).catch(() => {});
       }, 500);
     }
 

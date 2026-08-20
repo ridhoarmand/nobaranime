@@ -18,8 +18,8 @@ export const backfillLegacyAnime = async (batchLimit = 3) => {
     console.log(`[Gentle Backfill] Found ${pendingAnime.length} anime needing metadata sync...`);
     for (const item of pendingAnime) {
       console.log(`[Gentle Backfill] Syncing: "${item.title}" (${item.endpoint})`);
-      await scrapeAnimeDetail(item.endpoint, true);
-      await delay(12000); // 12 seconds gentle throttle
+      await scrapeAnimeDetail(item.endpoint, false, false);
+      await delay(5000);
     }
     return pendingAnime.length;
   } catch (err: any) {
