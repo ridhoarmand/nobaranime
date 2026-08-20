@@ -14,6 +14,16 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const cleanEndpoint = (href: string | undefined): string => {
   if (!href) return '';
+  // If it's a social share URL, extract the nested anime slug or return empty
+  if (href.includes('sharer') || href.includes('facebook.com') || href.includes('twitter.com') || href.includes('whatsapp.com')) {
+    const match = href.match(/\/anime\/([^\/\?#]+)/i);
+    if (match) return match[1].replace(/\/$/, '').trim();
+    return '';
+  }
+
+  const match = href.match(/\/(episode|anime|batch|lengkap)\/([^\/\?#]+)/i);
+  if (match) return match[2].replace(/\/$/, '').trim();
+
   return href
     .replace(/^https?:\/\/[^\/]+\/(episode|anime|batch|lengkap)\//i, '')
     .replace(/\/$/, '')
@@ -850,7 +860,15 @@ export const ScraperService = {
           }
         }
         // Resolve parent anime link from breadcrumbs / series link on episode page (.theseries a)
-        const parentHref = $('.theseries a').attr('href') || $('a[href*="/anime/"]').first().attr('href');
+        let parentHref = $('.theseries a, .cukder a[href*="/anime/"]').attr('href');
+        if (!parentHref) {
+          $('a[href*="/anime/"]').each((_, a) => {
+            const h = $(a).attr('href') || '';
+            if (!h.includes('facebook') && !h.includes('twitter') && !h.includes('sharer') && !parentHref) {
+              parentHref = h;
+            }
+          });
+        }
         const parentAnimeEndpoint = cleanEndpoint(parentHref);
 
         let finalAnimeId = animeId;
@@ -864,6 +882,23 @@ export const ScraperService = {
           if (parentAnime?.id) {
             finalAnimeId = parentAnime.id;
           }
+        }
+
+        if (finalAnimeId <= 0) {
+          const slugCandidate = endpointStr.replace(/-episode-\d+.*$/i, '-sub-indo').replace(/-sub-indo-sub-indo$/i, '-sub-indo');
+          let parentAnime = await db.query.anime.findFirst({ where: eq(anime.endpoint, slugCandidate) });
+          if (!parentAnime) {
+            console.log(`[Parent Sync Fallback] Scraping candidate parent anime "${slugCandidate}"...`);
+            parentAnime = await ScraperService.scrapeAnimeDetail(slugCandidate);
+          }
+          if (parentAnime?.id) {
+            finalAnimeId = parentAnime.id;
+          }
+        }
+
+        if (finalAnimeId <= 0) {
+          console.error(`[Episode Scrape] Skipping episode "${endpointStr}" because no parent anime found in DB (prevent FK error).`);
+          return null;
         }
 
         const epTitle = $('.venutama > h1').text() || additionalData.episode_title || '';
@@ -1099,8 +1134,10 @@ export const ScraperService = {
       const releaseElements = $('.venz, .venzt, .rapi, .rseries, .postlist').find('ul > li').toArray();
 
       for (const el of releaseElements) {
-        const episodeHref = $(el).find('a').attr('href') || '';
+        const episodeHref = $(el).find('a[href*="/episode/"]').first().attr('href') || $(el).find('.thumb > a').attr('href') || '';
+        const animeHref = $(el).find('a[href*="/anime/"], h2 a').first().attr('href') || '';
         const episode_endpoint = cleanEndpoint(episodeHref);
+        const anime_endpoint = cleanEndpoint(animeHref);
         if (!episode_endpoint || episode_endpoint.includes('batch') || episode_endpoint.includes('anime-list')) continue;
 
         // Check if episode endpoint exists in DB
@@ -1113,8 +1150,17 @@ export const ScraperService = {
           console.log(`[Homepage] New episode release detected on homepage: ${episode_endpoint}`);
           const epTitle = $(el).find('h2, .postlink, .jamm').text().trim() || episode_endpoint;
           const epDate = $(el).find('.newep, .zeebr').text().trim();
-          // Let scrapeEpisode resolve true parent anime via episode breadcrumbs (.theseries a)
-          await ScraperService.scrapeEpisode(episode_endpoint, 0, { episode_title: epTitle, episode_date: epDate });
+
+          let animeId = 0;
+          if (anime_endpoint) {
+            let parentAnime = await db.query.anime.findFirst({ where: eq(anime.endpoint, anime_endpoint) });
+            if (!parentAnime) {
+              parentAnime = await ScraperService.scrapeAnimeDetail(anime_endpoint);
+            }
+            if (parentAnime?.id) animeId = parentAnime.id;
+          }
+
+          await ScraperService.scrapeEpisode(episode_endpoint, animeId, { episode_title: epTitle, episode_date: epDate });
           updatedCount++;
         }
       }

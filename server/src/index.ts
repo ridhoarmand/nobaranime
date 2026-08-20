@@ -1,7 +1,6 @@
 import { Hono } from 'hono';
 import { logger } from 'hono/logger';
 import { cors } from 'hono/cors';
-import { serveStatic } from 'hono/bun';
 import { existsSync } from 'fs';
 import { ScraperService } from './services/scraper.js';
 import { Scheduler } from './services/scheduler.js';
@@ -836,35 +835,27 @@ const getClientDist = () => {
 
 const clientDist = getClientDist();
 
-// Serve static assets from /assets/
-app.use('/assets/*', serveStatic({ root: clientDist }));
-app.use('/favicon.ico', serveStatic({ path: `${clientDist}/favicon.ico` }));
-app.use('/manifest.json', serveStatic({ path: `${clientDist}/manifest.json` }));
-app.use('/sw.js', serveStatic({ path: `${clientDist}/sw.js` }));
-app.use('/registerSW.js', serveStatic({ path: `${clientDist}/registerSW.js` }));
-app.use('/*.png', serveStatic({ root: clientDist }));
-app.use('/*.svg', serveStatic({ root: clientDist }));
-app.use('/*.ico', serveStatic({ root: clientDist }));
-
-// Legacy API rewrite for direct API callers without /api prefix
+// Native Bun high-performance static file serving and SPA fallback
 app.use('*', async (c, next) => {
-  const isHtml = c.req.header('accept')?.includes('text/html');
-  const isStatic = c.req.path.startsWith('/assets') || c.req.path.includes('.');
-  if (!isHtml && !isStatic && !c.req.path.startsWith('/api')) {
-    const url = new URL(c.req.url);
-    url.pathname = `/api${url.pathname}`;
-    const res = await app.fetch(new Request(url.toString(), c.req.raw));
-    if (res.status !== 404) return res;
+  if (c.req.path.startsWith('/api') || c.req.path === '/health') {
+    return next();
   }
-  await next();
-});
 
-// SPA fallback for all browser navigations
-app.get('*', (c, next) => {
+  const reqPath = c.req.path === '/' ? '/index.html' : c.req.path;
+  const directPath = `${clientDist}${reqPath}`;
+
+  if (existsSync(directPath)) {
+    return new Response(Bun.file(directPath));
+  }
+
+  // Fallback to index.html for SPA client-side routes
   const indexPath = `${clientDist}/index.html`;
   if (existsSync(indexPath)) {
-    return serveStatic({ path: indexPath })(c, next);
+    return new Response(Bun.file(indexPath), {
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    });
   }
+
   return c.json({ status: false, message: 'Endpoint not found' }, 404);
 });
 
