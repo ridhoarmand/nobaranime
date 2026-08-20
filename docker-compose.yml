@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  nobaranime:
+    container_name: nobaranime
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: nobaranime:latest
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      - PORT=8000
+      - NODE_ENV=production
+      # Backend & Database
+      - DATABASE_URL=${DATABASE_URL:-mysql://root:password@db:3306/otakudesu}
+      - BASE_URL=${BASE_URL:-https://otakudesu.blog}
+      # Telegram Bot Notifications (Optional)
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s

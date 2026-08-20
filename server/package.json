@@ -1,0 +1,34 @@
+{
+  "name": "otakudesu-api",
+  "version": "1.0.0",
+  "description": "Otakudesu web scraping API",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "build": "bun build src/index.ts src/agent.ts --outdir ./dist --target bun",
+    "start:api": "bun run dist/index.js",
+    "start:agent": "bun run dist/agent.js",
+    "dev:api": "bun run --watch src/index.ts",
+    "dev:agent": "bun run --watch src/agent.ts",
+    "db:generate": "drizzle-kit generate:mysql",
+    "db:push": "drizzle-kit push:mysql",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@types/node-cron": "^3.0.11",
+    "cheerio": "^1.0.0-rc.12",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.30.0",
+    "hono": "^4.1.0",
+    "ky": "^1.2.0",
+    "mysql2": "^3.9.2",
+    "node-cron": "^4.2.1"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^20.11.24",
+    "drizzle-kit": "^0.20.14",
+    "typescript": "^5.3.3"
+  }
+}

@@ -1,31 +1,31 @@
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Production & Build outputs
+dist/
+client/dist/
+server/dist/
+dev-dist/
+client/dev-dist/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+client/.env
+server/.env
+
 # Logs
-logs
-*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+bun.lockb
+*.log
 
-node_modules
-dist
-dist-ssr
-dev-dist
-*.local
-ADBLOCK_IMPLEMENTATION.md
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# Editor & OS
+.vscode/
+.idea/
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# Environment Variables
-.env
-.env.*
-!.env.example
+Thumbs.db

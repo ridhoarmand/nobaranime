@@ -1,0 +1,14 @@
+node_modules
+client/node_modules
+server/node_modules
+dist
+client/dist
+server/dist
+dev-dist
+.git
+.github
+.env
+.env.*
+*.log
+.DS_Store
+Thumbs.db

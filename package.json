@@ -1,43 +1,32 @@
 {
-  "name": "nobaranime",
+  "name": "nobaranime-app",
+  "version": "2.0.0",
+  "description": "NobarAnime (Otakudesu Clone)",
   "private": true,
-  "version": "0.0.1",
   "type": "module",
+  "workspaces": [
+    "client",
+    "server"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.98.0",
-    "@tailwindcss/vite": "^4.2.1",
-    "@tanstack/react-query": "^5.90.21",
-    "clsx": "^2.1.1",
-    "jimp": "^1.6.0",
-    "js-cookie": "^3.0.5",
-    "lucide-react": "^0.577.0",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "react-router-dom": "^7.13.1",
-    "tailwind-merge": "^3.5.0",
-    "tailwindcss": "^4.2.1",
-    "vite-plugin-pwa": "^1.2.0",
-    "workbox-window": "^7.4.0"
+    "dev": "concurrently \"npm --prefix client run dev\" \"bun --cwd server dev\"",
+    "dev:client": "npm --prefix client run dev",
+    "dev:server": "bun --cwd server dev",
+    "dev:agent": "bun --cwd server dev:agent",
+    "build": "npm --prefix client run build && bun --cwd server build",
+    "build:client": "npm --prefix client run build",
+    "build:server": "bun --cwd server build",
+    "start": "bun --cwd server dist/index.js",
+    "start:api": "bun --cwd server dist/index.js",
+    "start:agent": "bun --cwd server dist/agent.js",
+    "db:push": "bun --cwd server db:push",
+    "db:generate": "bun --cwd server db:generate",
+    "db:studio": "bun --cwd server db:studio",
+    "agent:check": "bun --cwd server src/agent.ts --check",
+    "agent:ongoing": "bun --cwd server src/agent.ts --ongoing",
+    "agent:schedule": "bun --cwd server src/agent.ts --schedule"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.1",
-    "@types/js-cookie": "^3.0.6",
-    "@types/node": "^24.10.1",
-    "@types/react": "^19.2.7",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^5.1.1",
-    "eslint": "^9.39.1",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "eslint-plugin-react-refresh": "^0.4.24",
-    "globals": "^16.5.0",
-    "typescript": "~5.9.3",
-    "typescript-eslint": "^8.48.0",
-    "vite": "^7.3.1"
+    "concurrently": "^9.1.2"
   }
 }
