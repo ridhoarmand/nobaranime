@@ -14,9 +14,8 @@ RUN npm run build
 FROM oven/bun:1 AS server-builder
 WORKDIR /app/server
 
-COPY server/package*.json server/bun.lock* ./
-ENV BUN_FROZEN_LOCKFILE=0
-RUN bun install --no-frozen-lockfile
+COPY server/package*.json ./
+RUN bun install
 
 COPY server/ ./
 RUN bun run build
@@ -29,9 +28,8 @@ WORKDIR /app
 RUN apk add --no-cache curl bash
 
 # Copy server production dependencies and distribution
-COPY server/package*.json server/bun.lock* ./server/
-ENV BUN_FROZEN_LOCKFILE=0
-RUN cd server && bun install --production --no-frozen-lockfile
+COPY server/package*.json ./server/
+RUN cd server && bun install --production
 
 COPY --from=server-builder /app/server/dist ./server/dist
 COPY --from=server-builder /app/server/drizzle ./server/drizzle
