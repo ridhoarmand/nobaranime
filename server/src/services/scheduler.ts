@@ -42,5 +42,24 @@ export const Scheduler = {
     console.log('  - Real-time episode check: every 3 minutes (homepage & ongoing)');
     console.log('  - Ongoing scrape: every hour');
     console.log('  - Schedule update: daily 1 AM');
+
+    // Auto-bootstrap: Check if database is empty on startup, populate ongoing anime & schedule
+    setTimeout(async () => {
+      try {
+        const { db } = await import('../db/index.js');
+        const { anime } = await import('../db/schema.js');
+        const { sql } = await import('drizzle-orm');
+        const [row] = await db.select({ count: sql<number>`COUNT(*)` }).from(anime);
+        const count = Number(row?.count || 0);
+        if (count === 0) {
+          console.log('[Scheduler] Empty database detected on startup! Starting initial bootstrap (Ongoing & Schedule)...');
+          await ScraperService.scrapeOngoingAnime(2);
+          await ScraperService.scrapeSchedule();
+          console.log('[Scheduler] Initial bootstrap finished successfully!');
+        }
+      } catch (err: any) {
+        console.warn('[Scheduler Bootstrap Warning]', err.message);
+      }
+    }, 3000);
   },
 };

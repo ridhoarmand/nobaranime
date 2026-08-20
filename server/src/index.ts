@@ -581,7 +581,7 @@ api.get('/batch/:endpoint', async (c) => {
 
   return jsonOk(c, {
     ...batchData,
-    download_links: grouped_downloads, // Override legacy field with new structure
+    download_links: grouped_downloads,
     anime: animeData || null,
   });
 });
@@ -626,6 +626,7 @@ api.get('/genres/:genre', async (c) => {
 api.get('/schedule', async (c) => {
   const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
   const schedule: Record<string, any[]> = {};
+  let totalItems = 0;
 
   for (const day of days) {
     const list = await db
@@ -641,6 +642,25 @@ api.get('/schedule', async (c) => {
       .orderBy(asc(anime.title));
 
     schedule[day] = list;
+    totalItems += list.length;
+  }
+
+  if (totalItems === 0) {
+    console.log('[API /schedule] No schedule items in DB, fetching live schedule...');
+    await ScraperService.scrapeSchedule();
+    for (const day of days) {
+      schedule[day] = await db
+        .select({
+          id: anime.id,
+          title: anime.title,
+          endpoint: anime.endpoint,
+          thumb: anime.thumb,
+          total_eps: anime.total_eps,
+        })
+        .from(anime)
+        .where(and(eq(anime.broadcast_day, day), eq(anime.status, 'Ongoing')))
+        .orderBy(asc(anime.title));
+    }
   }
 
   return jsonOk(c, schedule);
@@ -655,29 +675,23 @@ api.get('/anime-list', async (c) => {
 
   let whereCond;
   if (!initial) {
-    // No filter, show all
     whereCond = undefined;
   } else if (initial === '#') {
-    // Non-alphabetic (0-9 or simbol)
     whereCond = sql`LEFT(${anime.title}, 1) REGEXP '^[^A-Za-z]'`;
   } else if (/^[A-Z]$/.test(initial)) {
-    // Specific letter
     whereCond = sql`LEFT(${anime.title}, 1) = ${initial}`;
   } else {
-    // Invalid filter
     return c.json({ status: false, message: 'Invalid initial filter' }, 400);
   }
 
   const baseQuery = db.select().from(anime);
   const data = whereCond ? baseQuery.where(whereCond) : baseQuery;
-  // Always order by title ASC for alphabetic order
   const result = await data.orderBy(asc(anime.title)).limit(limit).offset(offset);
 
-  // Count total
   const countQuery = db.select({ count: sql<number>`COUNT(*)` }).from(anime);
   const countResult = whereCond ? countQuery.where(whereCond) : countQuery;
   const [countRow] = await countResult;
-  const total = Number(countRow.count);
+  const total = Number(countRow?.count || 0);
 
   return jsonOk(c, result, {
     page,
@@ -689,18 +703,16 @@ api.get('/anime-list', async (c) => {
   });
 });
 
-// ── Internal scrape endpoints (protected by API Key middleware above) ──
+// ── Internal scrape endpoints ──
 
 // Scrape/update detail untuk 1 anime (episode + stream + download + genre)
 api.post('/internal/scrape/:endpoint', async (c) => {
-
   const endpoint = c.req.param('endpoint');
   console.log(`[API] Manual scrape triggered: ${endpoint}`);
 
   try {
     await ScraperService.scrapeAnimeDetail(endpoint);
 
-    // Return fresh data
     const [animeData] = await db.select().from(anime).where(eq(anime.endpoint, endpoint)).limit(1);
     const episodeList = await db
       .select({ id: episodes.id, title: episodes.title, episode_number: episodes.episode_number, endpoint: episodes.endpoint })
@@ -713,9 +725,6 @@ api.post('/internal/scrape/:endpoint', async (c) => {
     return c.json({ status: false, message: error.message || 'Scrape failed' }, 500);
   }
 });
-
-const lastSyncMap = new Map<string, number>();
-const SYNC_COOLDOWN_MS = 60 * 1000; // 1 minute cooldown
 
 // Sync / forced live rescrape 1 anime dari Otakudesu (publik untuk frontend sync button)
 api.post('/anime/:endpoint/sync', async (c) => {
@@ -746,7 +755,12 @@ api.post('/anime/:endpoint/sync', async (c) => {
     const scraped = await ScraperService.scrapeAnimeDetail(endpoint, true);
     if (!scraped) return json404(c, 'Gagal menyinkronkan anime dari Otakudesu');
 
-const [animeData] = await db.select().from(anime).where(eq(anime.endpoint, endpoint)).limit(1);
+    lastSyncMap.set(`anime:${endpoint}`, Date.now());
+    c.header('X-RateLimit-Limit', '1');
+    c.header('X-RateLimit-Remaining', '1');
+
+    // Return fresh anime details & episodes
+    const [animeData] = await db.select().from(anime).where(eq(anime.endpoint, endpoint)).limit(1);
     const episodeList = await db
       .select({ id: episodes.id, title: episodes.title, episode_number: episodes.episode_number, endpoint: episodes.endpoint, date: episodes.date })
       .from(episodes)
